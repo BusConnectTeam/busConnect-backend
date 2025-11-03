@@ -34,6 +34,7 @@
         <!-- <module>auth-service</module> -->
         <module>eureka-service</module>
         <module>catalog-service</module>
+        <module>api-gateway</module>
     </modules>
 
     <!-- Gestión centralizada de dependencias -->
