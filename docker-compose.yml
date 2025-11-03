@@ -1,0 +1,51 @@
+services:
+  # PostgreSQL - Base de datos compartida
+  postgres:
+    image: postgres:16-alpine
+    container_name: busconnect-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-busconnectdb}
+      POSTGRES_USER: ${POSTGRES_USER:-busconnect_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - busconnect-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-busconnect_user} -d ${POSTGRES_DB:-busconnectdb}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # User Service
+  user-service:
+    build:
+      context: .
+      dockerfile: user-service/Dockerfile
+    container_name: busconnect-user-service
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-busconnectdb}
+      DB_USERNAME: ${POSTGRES_USER:-busconnect_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "8082:8082"
+    networks:
+      - busconnect-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  busconnect-network:
+    driver: bridge

@@ -26,10 +26,17 @@ replay_pid*
 # Environment variables
 .env
 .env.local
-.env.*.local
+*.env
+
+# Docker volumes
+postgres-data/
+pgadmin-data/
 
 # IntelliJ IDEA files
 .idea/
+*.iml
+*.iws
+target/
 
 # Maven target directory
-target/
+**/target/
