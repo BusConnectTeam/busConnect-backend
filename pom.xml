@@ -30,6 +30,7 @@
     <!-- Módulos del proyecto -->
     <modules>
         <!-- Los módulos se irán añadiendo conforme se creen -->
+        <module>user-service</module>
     </modules>
 
     <!-- Gestión centralizada de dependencias -->
