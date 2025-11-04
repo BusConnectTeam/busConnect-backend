@@ -93,7 +93,7 @@ Specify number of passengers
 
 Pick bus type (simple / medium / lux)
 
-The design will be clean, accessible, and visually appealing, aimed at users aged 18–70.
+The design will be clean, accessible, and visually appealing.
 The color palette and visual identity will be defined during the upcoming design iterations.
 
 💻 Development Standards
