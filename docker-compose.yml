@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-busconnect_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
