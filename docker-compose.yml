@@ -20,6 +20,15 @@ services:
       timeout: 5s
       retries: 5
 
+  #Eureka Server
+  eureka-server:
+    build: ./eureka-server
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    networks:
+      - busconnect-net
+
   # User Service
   user-service:
     build:
@@ -49,3 +58,14 @@ volumes:
 networks:
   busconnect-network:
     driver: bridge
+
+  #Auth-Service
+  auth-service:
+    build: ./auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - db
+      - eureka-service
