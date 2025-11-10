@@ -21,13 +21,14 @@ services:
       retries: 5
 
   #Eureka Server
-  eureka-server:
-    build: ./eureka-server
-    container_name: eureka-server
-    ports:
-      - "8761:8761"
-    networks:
-      - busconnect-net
+  #eureka-server:
+  #  build: ./eureka-server
+  #  container_name: eureka-server
+  #  ports:
+  #    - "8761:8761"
+ #   networks:
+  #    - busconnect-network
+
 
   # User Service
   user-service:
@@ -51,6 +52,27 @@ services:
       postgres:
         condition: service_healthy
 
+  #Auth-Service
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-busconnectdb}
+      DB_USERNAME: ${POSTGRES_USER:-busconnect_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-BusConnect_pass2025}
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8081:8081"
+    networks:
+      - busconnect-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    #  - eureka-server
+
 volumes:
   postgres-data:
     driver: local
@@ -59,13 +81,3 @@ networks:
   busconnect-network:
     driver: bridge
 
-  #Auth-Service
-  auth-service:
-    build: ./auth-service
-    ports:
-      - "8081:8081"
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-    depends_on:
-      - db
-      - eureka-service

@@ -1,53 +1,18 @@
-# ==============================
-# 🌐 Configuración del servidor
-# ==============================
-server:
-  port: 8081        # Puerto en el que se ejecuta el auth-service
-
-# ==============================
-# ⚙️ Configuración general de Spring Boot
-# ==============================
 spring:
-  application:
-    name: auth-service    # Nombre del microservicio (aparece en Eureka)
-
-  # ------------------------------
-  # 🗄️ Configuración de la base de datos
-  # ------------------------------
   datasource:
-    url: jdbc:postgresql://db:5432/busconnect_authdb   # Nombre del contenedor db en docker-compose
+    url: jdbc:postgresql://localhost:5433/busconnectdb
     username: busconnect_user
-    password: busconnect_password
+    password: 'BusConnect_pass2025'
     driver-class-name: org.postgresql.Driver
 
-  # ------------------------------
-  # 🧱 Configuración de JPA / Hibernate
-  # ------------------------------
   jpa:
     hibernate:
-      ddl-auto: update   # En desarrollo: crea/actualiza tablas automáticamente
-    show-sql: true       # Muestra las consultas SQL en la consola
-    properties:
-      hibernate:
-        format_sql: true # Formatea las consultas SQL para mayor legibilidad
+      ddl-auto: update
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: true
 
-# ==============================
-# 🔗 Configuración de Eureka Client
-# ==============================
 eureka:
   client:
-    service-url:
-      defaultZone: http://eureka-service:8761/eureka/   # Dirección del servidor Eureka
-    register-with-eureka: true   # Se registrará en Eureka automáticamente
-    fetch-registry: true         # Obtendrá información de otros servicios registrados
-
-  instance:
-    prefer-ip-address: true      # Usa la IP en lugar del hostname para registrarse
-
-# ==============================
-# 🪵 Configuración de logs
-# ==============================
-logging:
-  level:
-    org.springframework: INFO       # Nivel general de Spring
-    com.busconnect.auth: DEBUG      # Nivel de detalle del paquete del microservicio
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
