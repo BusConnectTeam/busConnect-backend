@@ -8,7 +8,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.6</version>
+        <version>3.3.4</version>
         <relativePath/>
     </parent>
 
@@ -29,14 +29,15 @@
 
     <!-- Módulos del proyecto -->
     <modules>
-        <!-- Los módulos se irán añadiendo conforme se creen -->
         <module>user-service</module>
+        <!-- <module>auth-service</module> -->
+        <module>eureka-service</module>
     </modules>
 
     <!-- Gestión centralizada de dependencias -->
     <dependencyManagement>
         <dependencies>
-            <!-- Spring Cloud -->
+            <!-- Spring Cloud BOM -->
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -95,4 +96,5 @@
         </pluginManagement>
     </build>
 
+    <!-- No es necesario definir repositorios: Maven Central es suficiente -->
 </project>
