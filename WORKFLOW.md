@@ -19,6 +19,7 @@ El objetivo es mantener un flujo claro, ordenado y colaborativo entre todas las 
 ## ⚙️ Flujo de trabajo
 
 ### 1️⃣ Crear una nueva feature
+
 Cada microservicio o tarea importante se desarrolla en una rama propia:
 
 ```bash
