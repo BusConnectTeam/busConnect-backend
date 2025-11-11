@@ -33,10 +33,10 @@ public class User {
 
     //SECURITY STATE
     @Column(name = "is_active", nullable = false)
-    private Boolean active = true;
+    private Boolean isActive = true;
 
     @Column(name = "is_locked", nullable = false)
-    private Boolean locked = false;
+    private Boolean isLocked = false;
 
     @Column(name = "failed_login_attempts", nullable = false)
     @Min(0)
@@ -61,11 +61,11 @@ public class User {
         if (this.failedLoginAttempts == null) {
             this.failedLoginAttempts = 0;
         }
-        if (this.active == null) {
-            this.active = true;
+        if (this.isActive == null) {
+            this.isActive = true;
         }
-        if (this.locked == null) {
-            this.locked = false;
+        if (this.isLocked == null) {
+            this.isLocked = false;
         }
         if (this.updatedAt == null) {
             this.updatedAt = LocalDateTime.now();
