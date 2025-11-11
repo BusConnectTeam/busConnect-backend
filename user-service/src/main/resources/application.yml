@@ -18,12 +18,17 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
-        default_schema: user_service
+        '[format_sql]': true
+        '[default_schema]': user_service
 
   config:
     activate:
       on-profile: docker
+
+  messages:
+    basename: messages
+    encoding: UTF-8
+    fallback-to-system-locale: false
 
   profiles:
     active: docker
@@ -38,5 +43,8 @@ springdoc:
 
 logging:
   level:
-    com.busconnect.userservice: INFO
-    org.hibernate.SQL: INFO
+    '[com.busconnect.userservice]': DEBUG
+    '[org.hibernate.SQL]': DEBUG
+    '[org.hibernate.type.descriptor.sql.BasicBinder]': TRACE
+
+
