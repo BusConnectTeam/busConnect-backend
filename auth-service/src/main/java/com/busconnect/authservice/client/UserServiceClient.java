@@ -1,4 +1,4 @@
-package com.busconnect.authservice.service;
+package com.busconnect.authservice.client;
 
 import com.busconnect.authservice.model.AuthUserDTO;
 import org.springframework.cloud.openfeign.FeignClient;
