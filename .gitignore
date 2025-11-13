@@ -9,6 +9,8 @@
 
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
+.DS_Store
+Thumbs.db
 
 # Package Files #
 *.jar
@@ -27,6 +29,7 @@ replay_pid*
 .env
 .env.local
 *.env
+**/.env
 
 # Docker volumes
 postgres-data/
@@ -36,7 +39,11 @@ pgadmin-data/
 .idea/
 *.iml
 *.iws
-target/
+
+
+# VSC files
+**/.vscode/
 
 # Maven target directory
 **/target/
+target/

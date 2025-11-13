@@ -1,0 +1,38 @@
+# ===============================
+# Build & Compilation Artifacts
+# ===============================
+/target/             # Tu: Directorio de compilación de Maven
+build/               # Complemento: Directorio de compilación de Gradle
+*.jar                # Tu: Archivos JAR
+**/*.class           # Complemento: Archivos de clase compilados
+*.jar.original       # Complemento: Archivos JAR originales después de repackaging
+
+# ===============================
+# Logs & Temporary Files
+# ===============================
+*.log                # Archivos de log
+log/                 # Complemento: Directorio de logs
+*.tmp                # Archivos temporales
+tmp/                 # Complemento: Directorio de archivos temporales
+
+# ===============================
+# IDE & System Files
+# ===============================
+.idea/               # Directorios de configuración de IntelliJ IDEA
+.vscode/             # Directorios de configuración de VS Code
+*.iml                # Archivos de módulo de IntelliJ IDEA
+.git                 # Complemento: Directorio de control de versiones
+.DS_Store            # Complemento: Archivos de metadatos de macOS
+
+# ===============================
+# Environment Variables & Secrets
+# ===============================
+.env                 # Archivos de variables de entorno
+.env.local           # Archivos de variables de entorno locales
+.local               # Complemento: Archivos de entorno local genéricos
+
+# ===============================
+# Docker & CI/CD Files
+# ===============================
+Dockerfile.old       # Archivos Dockerfile antiguos
+Dockerfile.bak       # Complemento: Copias de seguridad de Dockerfile

@@ -1,0 +1,35 @@
+spring:
+  # 1. Nombre del microservicio para Eureka y Feign
+  application:
+    name: auth-service
+
+  cloud:
+    compatibility-verifier:
+      enabled: false # Desactiva el chequeo estricto de compatibilidad entre Spring Cloud y Spring Boot
+
+server:
+  # 2. Puerto del servicio (ajustado a 8081)
+  port: 8081
+
+# 3. CONFIGURACIÓN DEL CLIENTE EUREKA (Descubrimiento de Servicios), pendiente de conectar servicio
+eureka:
+  client:
+    # URL del servidor de Eureka (asume el host 'eureka-service' en Docker Compose)
+    service-url:
+      defaultZone: http://eureka-service:8761/eureka/
+    # Habilitar el registro y la búsqueda de servicios
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    # Configuración esencial para entornos Docker
+    instance-id: ${spring.application.name}:${random.value}
+    prefer-ip-address: true
+
+# 4. CONFIGURACIÓN DE LOGGING
+logging:
+  level:
+    # Nivel de información para el framework de Spring
+    org.springframework: INFO
+    # Nivel de debug para ver las peticiones que realiza el Feign Client
+    com.busconnect.auth.client.UserServiceClient: DEBUG
+
