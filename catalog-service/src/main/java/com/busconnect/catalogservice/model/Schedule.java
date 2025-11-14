@@ -1,80 +1,76 @@
 package com.busconnect.catalogservice.model;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.springframework.data.annotation.Version;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
 
-@Entity
-@EntityListeners(AuditingEntityListener.class)
-@Table(name = "schedules", schema = "catalog")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "schedules", schema = "catalog")
 public class Schedule {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @NotNull(message = "Route is required")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "route_id", nullable = false)
-    private Route route;
+    // En R2DBC usamos IDs directamente en lugar de @ManyToOne
+    @NotNull(message = "{schedule.route.required}")
+    @Column("route_id")
+    private UUID routeId;
 
-    @NotNull(message = "Company is required")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "company_id", nullable = false)
-    private Company company;
+    @NotNull(message = "{schedule.company.required}")
+    @Column("company_id")
+    private UUID companyId;
 
-    @NotNull(message = "Vehicle type is required")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vehicle_type_id", nullable = false)
-    private VehicleType vehicleType;
+    @NotNull(message = "{schedule.vehicle.type.required}")
+    @Column("vehicle_type_id")
+    private UUID vehicleTypeId;
 
     // Horarios
-    @NotNull(message = "Departure time is required")
-    @Column(name = "departure_time", nullable = false)
+    @NotNull(message = "{schedule.departure.time.required}")
+    @Column("departure_time")
     private LocalTime departureTime;
 
-    @Column(name = "arrival_time")
+    @Column("arrival_time")
     private LocalTime arrivalTime; // Calculado automáticamente
 
-    // Disponibilidad
-    @Column(name = "available_dates", columnDefinition = "date[]")
+    // Disponibilidad (PostgreSQL array de fechas)
+    @Column("available_dates")
     private LocalDate[] availableDates; // Array de fechas disponibles
 
-    @NotNull(message = "Total seats is required")
-    @Min(value = 1, message = "Total seats must be at least 1")
-    @Column(name = "total_seats", nullable = false)
+    @NotNull(message = "{schedule.total.seats.required}")
+    @Min(value = 1, message = "{schedule.total.seats.min}")
+    @Column("total_seats")
     private Integer totalSeats;
 
-    @NotNull(message = "Available seats is required")
-    @Min(value = 0, message = "Available seats cannot be negative")
-    @Column(name = "available_seats", nullable = false)
+    @NotNull(message = "{schedule.available.seats.required}")
+    @Min(value = 0, message = "{schedule.available.seats.min}")
+    @Column("available_seats")
     private Integer availableSeats;
 
     // Estado
-    @NotNull(message = "Status is required")
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @NotNull(message = "{schedule.status.required}")
+    @Column("status")
     private ScheduleStatus status = ScheduleStatus.AVAILABLE;
 
     // Driver info (para Fase 2)
-    @Column(name = "driver_id")
+    @Column("driver_id")
     private UUID driverId;
 
-    @Column(name = "driver_assigned_at")
+    @Column("driver_assigned_at")
     private LocalDateTime driverAssignedAt;
 
     // Control de concurrencia (Optimistic Locking)
@@ -82,11 +78,11 @@ public class Schedule {
     private Integer version = 1;
 
     @CreatedDate
-    @Column(name = "created_at", updatable = false)
+    @Column("created_at")
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(name = "updated_at")
+    @Column("updated_at")
     private LocalDateTime updatedAt;
 
     // Enum para estados
@@ -94,6 +90,19 @@ public class Schedule {
         AVAILABLE,  // Disponible para reservar
         FULL,       // Sin asientos disponibles
         CANCELLED   // Cancelado por la empresa
+    }
+
+    // Constructor conveniente
+    public Schedule(UUID routeId, UUID companyId, UUID vehicleTypeId, 
+                   LocalTime departureTime, Integer totalSeats) {
+        this.routeId = routeId;
+        this.companyId = companyId;
+        this.vehicleTypeId = vehicleTypeId;
+        this.departureTime = departureTime;
+        this.totalSeats = totalSeats;
+        this.availableSeats = totalSeats; // Inicialmente todos disponibles
+        this.status = ScheduleStatus.AVAILABLE;
+        this.version = 1;
     }
 
     // Método helper para verificar disponibilidad en una fecha
@@ -130,5 +139,12 @@ public class Schedule {
         }
         
         return true;
+    }
+
+    // Método helper para calcular arrival time basado en route duration
+    public void calculateArrivalTime(Integer routeDurationMinutes) {
+        if (departureTime != null && routeDurationMinutes != null) {
+            this.arrivalTime = departureTime.plusMinutes(routeDurationMinutes);
+        }
     }
 }

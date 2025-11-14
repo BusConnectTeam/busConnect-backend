@@ -1,61 +1,69 @@
 package com.busconnect.catalogservice.model;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Entity
-@EntityListeners(AuditingEntityListener.class)
-@Table(name = "municipalities", schema = "catalog")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "municipalities", schema = "catalog")
 public class Municipality {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @NotBlank(message = "Name is required")
-    @Column(nullable = false, length = 100)
+    @NotBlank(message = "{municipality.name.required}")
+    @Column("name")
     private String name;
 
-    @NotBlank(message = "Normalized name is required")
-    @Column(name = "normalized_name", nullable = false, length = 100, unique = true)
+    @NotBlank(message = "{municipality.normalized.required}")
+    @Column("normalized_name")
     private String normalizedName;
 
-    @NotBlank(message = "Province is required")
-    @Column(nullable = false, length = 50)
+    @NotBlank(message = "{municipality.province.required}")
+    @Column("province")
     private String province;
 
-    @Column(precision = 10, scale = 7)
+    @Column("latitude")
     private BigDecimal latitude;
 
-    @Column(precision = 10, scale = 7)
+    @Column("longitude")
     private BigDecimal longitude;
 
-    @Column(name = "postal_codes", length = 200)
+    @Column("postal_codes")
     private String postalCodes;
 
     @NotNull
-    @Column(name = "is_active", nullable = false)
-    private Boolean isActive = true;
+    @Column("is_active")
+    private Boolean active = true;
 
     @CreatedDate
-    @Column(name = "created_at", updatable = false)
+    @Column("created_at")
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(name = "updated_at")
+    @Column("updated_at")
     private LocalDateTime updatedAt;
+
+    // Constructor conveniente para crear municipio básico
+    public Municipality(String name, String province, BigDecimal latitude, BigDecimal longitude) {
+        this.name = name;
+        this.normalizedName = name.toLowerCase().trim();
+        this.province = province;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.active = true;
+    }
 }

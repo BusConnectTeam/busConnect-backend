@@ -1,82 +1,70 @@
 package com.busconnect.catalogservice.model;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
+import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Entity
-@EntityListeners(AuditingEntityListener.class)
-@Table(name = "routes", schema = "catalog")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "routes", schema = "catalog")
 public class Route {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @NotNull(message = "Origin municipality is required")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "origin_municipality_id", nullable = false)
-    private Municipality originMunicipality;
-
-    @NotNull(message = "Destination municipality is required")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "destination_municipality_id", nullable = false)
-    private Municipality destinationMunicipality;
-
-    @DecimalMin(value = "0.1", message = "Distance must be positive")
-    @Column(name = "distance_km", precision = 6, scale = 2)
-    private BigDecimal distanceKm; // Desde OpenRouteService
-
-    @Min(value = 1, message = "Duration must be at least 1 minute")
-    @Column(name = "estimated_duration_minutes")
-    private Integer estimatedDurationMinutes; // Desde OpenRouteService
-
-    @Column(name = "route_code", length = 20)
-    private String routeCode; // Ej: "BCN-STG"
+    @NotNull
+    @Column("origin_municipality_id")
+    private UUID originMunicipalityId;
 
     @NotNull
-    @Column(name = "is_active", nullable = false)
-    private Boolean isActive = true;
+    @Column("destination_municipality_id") 
+    private UUID destinationMunicipalityId;
 
-    // Cache de OpenRouteService
-    @Column(name = "ors_last_updated")
+    @Column("distance_km")
+    private BigDecimal distanceKm;
+
+    @Column("estimated_duration_minutes")
+    private Integer estimatedDurationMinutes;
+
+    @Column("route_code")
+    private String routeCode;
+
+    @NotNull
+    @Column("is_active")
+    private Boolean active = true;
+
+    @Column("ors_last_updated")
     private LocalDateTime orsLastUpdated;
 
-    @Column(name = "ors_geometry", columnDefinition = "TEXT")
-    private String orsGeometry; // GeoJSON opcional para mapas
+    @Column("ors_geometry")
+    private String orsGeometry;  // Para guardar la geometría de OpenRouteService
 
     @CreatedDate
-    @Column(name = "created_at", updatable = false)
+    @Column("created_at")
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(name = "updated_at")
+    @Column("updated_at")
     private LocalDateTime updatedAt;
 
-    // Método helper para generar route code automáticamente
-    public void generateRouteCode() {
-        if (originMunicipality != null && destinationMunicipality != null) {
-            String originCode = originMunicipality.getNormalizedName()
-                    .substring(0, Math.min(3, originMunicipality.getNormalizedName().length()))
-                    .toUpperCase();
-            String destCode = destinationMunicipality.getNormalizedName()
-                    .substring(0, Math.min(3, destinationMunicipality.getNormalizedName().length()))
-                    .toUpperCase();
-            this.routeCode = originCode + "-" + destCode;
-        }
+    // Constructor conveniente
+    public Route(UUID originId, UUID destinationId, BigDecimal distanceKm, Integer durationMinutes) {
+        this.originMunicipalityId = originId;
+        this.destinationMunicipalityId = destinationId;
+        this.distanceKm = distanceKm;
+        this.estimatedDurationMinutes = durationMinutes;
+        this.active = true;
+        this.orsLastUpdated = LocalDateTime.now();
     }
 }

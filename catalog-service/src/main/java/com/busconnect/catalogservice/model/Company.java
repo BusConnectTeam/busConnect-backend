@@ -1,67 +1,74 @@
 package com.busconnect.catalogservice.model;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Entity
-@EntityListeners(AuditingEntityListener.class)
-@Table(name = "companies", schema = "catalog")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "companies", schema = "catalog")
 public class Company {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "external_company_id", length = 50)
+    @Column("external_company_id")
     private String externalCompanyId; // Para futuro company-service
 
-    @NotBlank(message = "Company name is required")
-    @Column(nullable = false, length = 200)
+    @NotBlank(message = "{company.name.required}")
+    @Column("name")
     private String name;
 
-    @Column(name = "contact_email", length = 100)
+    @Column("contact_email")
     private String contactEmail;
 
-    @Column(name = "contact_phone", length = 20)
+    @Column("contact_phone")
     private String contactPhone;
 
-    @Column(length = 200)
+    @Column("website")
     private String website;
 
     @NotNull
-    @Column(nullable = false)
+    @Column("verified")
     private Boolean verified = false;
 
-    @DecimalMin(value = "0.0", message = "Rating cannot be negative")
-    @DecimalMax(value = "5.0", message = "Rating cannot be greater than 5")
-    @Column(precision = 3, scale = 2)
+    @DecimalMin(value = "0.0", message = "{company.rating.min}")
+    @DecimalMax(value = "5.0", message = "{company.rating.max}")
+    @Column("rating")
     private BigDecimal rating;
 
     @NotNull
-    @Column(name = "is_active", nullable = false)
-    private Boolean isActive = true;
+    @Column("is_active")
+    private Boolean active = true;
 
     @CreatedDate
-    @Column(name = "created_at", updatable = false)
+    @Column("created_at")
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(name = "updated_at")
+    @Column("updated_at")
     private LocalDateTime updatedAt;
+
+    // Constructor conveniente
+    public Company(String name, String contactEmail, String contactPhone) {
+        this.name = name;
+        this.contactEmail = contactEmail;
+        this.contactPhone = contactPhone;
+        this.verified = false;
+        this.active = true;
+    }
 }

@@ -5,33 +5,30 @@ spring:
   application:
     name: catalog-service
 
-  datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}
+  # ✅ Configuración R2DBC (Reactiva)
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}?schema=catalog
     username: ${DB_USERNAME:busconnect_user}
     password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        '[format_sql]': true
-        '[default_schema]': catalog
-
-  config:
-    activate:
-      on-profile: docker
+    pool:
+      initial-size: 10
+      max-size: 20
+      max-idle-time: 30m
+      validation-query: SELECT 1
 
   messages:
     basename: messages
     encoding: UTF-8
     fallback-to-system-locale: false
 
-  profiles:
-    active: docker
+  # ✅ Caché con Caffeine (in-memory, gratis)
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=1h
+    cache-names:
+      - routes
+      - municipalities
 
 # OpenRouteService Configuration
 openroute:
@@ -39,7 +36,16 @@ openroute:
     key: ${OPENROUTE_API_KEY:}
     base-url: https://api.openrouteservice.org
     timeout: 10s
-    max-requests-per-day: 2000
+    rate-limit:
+      max-requests-per-day: 2000
+
+# ✅ Logging para R2DBC
+logging:
+  level:
+    '[com.busconnect.catalogservice]': DEBUG
+    '[io.r2dbc.postgresql.QUERY]': DEBUG
+    '[io.r2dbc.postgresql.PARAM]': DEBUG
+    '[org.springframework.r2dbc]': DEBUG
 
 springdoc:
   api-docs:
@@ -48,9 +54,5 @@ springdoc:
     path: /swagger-ui.html
     tags-sorter: alpha
     operations-sorter: alpha
-
-logging:
-  level:
-    '[com.busconnect.catalogservice]': DEBUG
-    '[org.hibernate.SQL]': DEBUG
-    '[org.hibernate.type.descriptor.sql.BasicBinder]': TRACE
+  default-produces-media-type: application/json
+  default-consumes-media-type: application/json
