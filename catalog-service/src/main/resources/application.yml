@@ -1,0 +1,58 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: catalog-service
+
+  # ✅ Configuración R2DBC (Reactiva)
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}?schema=catalog
+    username: ${DB_USERNAME:busconnect_user}
+    password: ${DB_PASSWORD}
+    pool:
+      initial-size: 10
+      max-size: 20
+      max-idle-time: 30m
+      validation-query: SELECT 1
+
+  messages:
+    basename: messages
+    encoding: UTF-8
+    fallback-to-system-locale: false
+
+  # ✅ Caché con Caffeine (in-memory, gratis)
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=1h
+    cache-names:
+      - routes
+      - municipalities
+
+# OpenRouteService Configuration
+openroute:
+  api:
+    key: ${OPENROUTE_API_KEY:}
+    base-url: https://api.openrouteservice.org
+    timeout: 10s
+    rate-limit:
+      max-requests-per-day: 2000
+
+# ✅ Logging para R2DBC
+logging:
+  level:
+    '[com.busconnect.catalogservice]': DEBUG
+    '[io.r2dbc.postgresql.QUERY]': DEBUG
+    '[io.r2dbc.postgresql.PARAM]': DEBUG
+    '[org.springframework.r2dbc]': DEBUG
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  default-produces-media-type: application/json
+  default-consumes-media-type: application/json
