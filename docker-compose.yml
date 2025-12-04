@@ -49,3 +49,25 @@ volumes:
 networks:
   busconnect-network:
     driver: bridge
+
+#Auth Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    container_name: busconnect-auth-service
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-busconnectdb}
+      DB_USERNAME: ${POSTGRES_USER:-busconnect_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "8081:8081"
+    networks:
+      - busconnect-network
+    depends_on:
+      postgres:
+        condition: service_healthy
