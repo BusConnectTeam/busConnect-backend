@@ -32,6 +32,7 @@
         <module>user-service</module>
         <module>auth-service</module>
         <module>eureka-service</module>
+        <module>catalog-service</module>
     </modules>
 
     <!-- Gestión centralizada de dependencias -->
