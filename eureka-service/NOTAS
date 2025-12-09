@@ -1,0 +1,14 @@
+Cuando activemos este servicio cambiar en application.yml de auth-service
+
+eureka:
+  client:
+    # URL del servidor de Eureka (asume el host 'eureka-service' en Docker Compose)
+    service-url:
+      defaultZone: http://eureka-service:8761/eureka/
+    # Habilitar el registro y la búsqueda de servicios
+    register-with-eureka: true => está en false y pasar a true
+    fetch-registry: tre => está en false y pasar a true
+  instance:
+    # Configuración esencial para entornos Docker
+    instance-id: ${spring.application.name}:${random.value}
+    prefer-ip-address: true

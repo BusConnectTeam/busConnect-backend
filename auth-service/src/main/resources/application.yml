@@ -1,15 +1,53 @@
+
+server:
+  # 1. Puerto del servicio
+  port: 8081
+
 spring:
-  # 1. Nombre del microservicio para Eureka y Feign
   application:
     name: auth-service
 
-  cloud:
-    compatibility-verifier:
-      enabled: false # Desactiva el chequeo estricto de compatibilidad entre Spring Cloud y Spring Boot
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}
+    username: ${DB_USERNAME:busconnect_user}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
 
-server:
-  # 2. Puerto del servicio (ajustado a 8081)
-  port: 8081
+    jpa:
+      hibernate:
+        ddl-auto: update
+      show-sql: true
+      properties:
+        hibernate:
+          dialect: org.hibernate.dialect.PostgreSQLDialect
+          '[format_sql]': true
+          '[default_schema]': auth_service
+
+    config:
+      activate:
+        on-profile: docker
+
+    messages:
+      basename: messages
+      encoding: UTF-8
+      fallback-to-system-locale: false
+
+    profiles:
+      active: docker
+
+  springdoc:
+    api-docs:
+      path: /api-docs
+    swagger-ui:
+      path: /swagger-ui.html
+      tags-sorter: alpha
+      operations-sorter: alpha
+
+  logging:
+    level:
+      '[com.busconnect.userservice]': DEBUG
+      '[org.hibernate.SQL]': DEBUG
+      '[org.hibernate.type.descriptor.sql.BasicBinder]': TRACE
 
 # 3. CONFIGURACIÓN DEL CLIENTE EUREKA (Descubrimiento de Servicios), pendiente de conectar servicio
 eureka:
@@ -18,8 +56,8 @@ eureka:
     service-url:
       defaultZone: http://eureka-service:8761/eureka/
     # Habilitar el registro y la búsqueda de servicios
-    register-with-eureka: true
-    fetch-registry: true
+    register-with-eureka: false
+    fetch-registry: false
   instance:
     # Configuración esencial para entornos Docker
     instance-id: ${spring.application.name}:${random.value}

@@ -5,8 +5,8 @@ services:
     container_name: busconnect-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-busconnectdb}
-      POSTGRES_USER: ${POSTGRES_USER:-busconnect_user}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5433:5432"
@@ -15,7 +15,7 @@ services:
     networks:
       - busconnect-network
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-busconnect_user} -d ${POSTGRES_DB:-busconnectdb}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -31,8 +31,8 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-busconnectdb}
-      DB_USERNAME: ${POSTGRES_USER:-busconnect_user}
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "8082:8082"
@@ -42,15 +42,7 @@ services:
       postgres:
         condition: service_healthy
 
-volumes:
-  postgres-data:
-    driver: local
-
-networks:
-  busconnect-network:
-    driver: bridge
-
-#Auth Service
+  # Auth Service
   auth-service:
     build:
       context: .
@@ -61,8 +53,8 @@ networks:
       SPRING_PROFILES_ACTIVE: docker
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: ${POSTGRES_DB:-busconnectdb}
-      DB_USERNAME: ${POSTGRES_USER:-busconnect_user}
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "8081:8081"
@@ -71,3 +63,10 @@ networks:
     depends_on:
       postgres:
         condition: service_healthy
+
+volumes:
+  postgres-data:
+
+networks:
+  busconnect-network:
+    driver: bridge

@@ -1,0 +1,21 @@
+# ==== Archivos temporales de Eclipse/IDE ====
+*.class
+*.log
+*.tmp
+*.swp
+*.DS_Store
+.idea/
+.vscode/
+*.iml
+target/
+
+# ==== Archivos de configuración locales ====
+application*.yml
+application*.properties
+NOTAS.txt
+
+# ==== Dependencias descargadas ====
+*.jar
+*.war
+*.ear
+/.mvn/

@@ -1,44 +1,41 @@
-# ==============================================================================
-# 1️⃣ ETAPA DE CONSTRUCCIÓN (BUILD STAGE)
-# Compila el proyecto usando Maven y Java 21.
-# ==============================================================================
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# ============================================
+# Stage 1: Build
+# ============================================
+# Usamos Maven + JDK ya preparado para build
+FROM maven:3.9-eclipse-temurin-21-alpine AS build
 
-# Crea y define el directorio de trabajo
 WORKDIR /app
 
-# Copia solo los archivos necesarios para descargar dependencias primero (mejor cache)
-COPY pom.xml .
-COPY ../pom.xml ../pom.xml
-COPY ../.mvn ../.mvn
-COPY ../mvnw ../mvnw
+COPY . .
 
-# Descarga las dependencias (sin compilar todavía)
-RUN chmod +x ../mvnw && ../mvnw dependency:go-offline -B
+# Descargar dependencias y compilar solo auth-service
+RUN mvn -pl auth-service -am clean package -DskipTests
 
-# Copia el código fuente del microservicio
-COPY src ./src
-
-# Compila y empaqueta el microservicio (sin ejecutar tests)
-RUN ../mvnw clean package -DskipTests
-
-# ==============================================================================
-# 2️⃣ ETAPA DE EJECUCIÓN (RUNTIME STAGE)
-# Imagen ligera solo con el JRE para ejecutar la app.
-# ==============================================================================
+# ============================================
+# Stage 2: Runtime
+# ============================================
 FROM eclipse-temurin:21-jre-alpine
 
-# Puerto que expone el microservicio (8081 para auth-service)
-EXPOSE 8081
-
-# Por seguridad, se ejecuta como usuario no root
-USER 1000
-
-# Crea directorio de trabajo
 WORKDIR /app
 
-# Copia el JAR desde la etapa anterior
-COPY --from=builder /app/target/*.jar app.jar
 
-# Comando de inicio
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Crear usuario no-root (opcional, más seguro)
+RUN addgroup -S spring && adduser -S spring -G spring
+USER spring:spring
+
+# Copiar JAR generado desde la etapa de build
+COPY --from=build /app/auth-service/target/*.jar app.jar
+
+# Exponer puerto
+EXPOSE 8081
+
+# Variables de entorno opcionales
+ENV SPRING_PROFILES_ACTIVE=docker
+ENV JAVA_OPTS="-Xmx512m -Xms256m"
+
+# Healthcheck opcional
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8081/actuator/health || exit 1
+
+# Ejecutar la aplicación
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
