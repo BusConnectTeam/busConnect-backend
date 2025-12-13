@@ -5,28 +5,28 @@ spring:
   application:
     name: user-service
 
-  datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}
+  # ✅ Configuración R2DBC (Reactiva)
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}?schema=user_service
     username: ${DB_USERNAME:busconnect_user}
     password: ${DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
-        default_schema: user_service
-
-  config:
-    activate:
-      on-profile: docker
+    pool:
+      initial-size: 10
+      max-size: 20
+      max-idle-time: 30m
+      validation-query: SELECT 1
 
   profiles:
     active: docker
+
+  # ✅ Caché con Caffeine (in-memory, gratis)
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=1h
+    cache-names:
+      - users
+      - sessions
 
 springdoc:
   api-docs:
@@ -35,12 +35,16 @@ springdoc:
     path: /swagger-ui.html
     tags-sorter: alpha
     operations-sorter: alpha
+  default-produces-media-type: application/json
+  default-consumes-media-type: application/json
 
+# ✅ Logging para R2DBC
 logging:
   level:
-    com.busconnect.userservice: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    '[com.busconnect.userservice]': DEBUG
+    '[io.r2dbc.postgresql.QUERY]': DEBUG
+    '[io.r2dbc.postgresql.PARAM]': DEBUG
+    '[org.springframework.r2dbc]': DEBUG
 
 # Configuración para el manejo de idiomas
 spring:
