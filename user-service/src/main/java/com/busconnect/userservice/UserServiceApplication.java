@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.info.Info;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.data.r2dbc.config.EnableR2dbcAuditing;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
@@ -12,11 +12,11 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         info = @Info(
                 title = "User Service API",
                 version = "1.0.0",
-                description = "Microservicio para gestión de usuarios en BusConnect"
+                description = "Microservicio reactivo para gestión de usuarios en BusConnect"
         )
 )
 @EnableScheduling
-@EnableJpaAuditing
+@EnableR2dbcAuditing //Para @CreatedDate y @LastModifiedDate en R2DBC
 public class UserServiceApplication {
 
     public static void main(String[] args) {
