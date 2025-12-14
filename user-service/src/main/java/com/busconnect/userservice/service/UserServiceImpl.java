@@ -3,6 +3,8 @@ package com.busconnect.userservice.service;
 import com.busconnect.userservice.dto.request.CreateUserRequest;
 import com.busconnect.userservice.dto.request.UpdateUserRequest;
 import com.busconnect.userservice.dto.response.UserResponse;
+import com.busconnect.userservice.exception.EmailAlreadyExistsException;
+import com.busconnect.userservice.exception.UserNotFoundException;
 import com.busconnect.userservice.model.User;
 import com.busconnect.userservice.repository.UserRepository;
 import lombok.AllArgsConstructor;
@@ -16,7 +18,7 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 
 /**
- * Implementación reactiva de UserService.
+ * Implementation reactive of UserService.
  */
 @Slf4j
 @Service
@@ -26,17 +28,17 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
 
     /**
-     * Crea un nuevo usuario.
+     * Create a new user.
      *
-     * @param request Datos del usuario a crear.
-     * @return Mono con la respuesta del usuario creado.
+     * @param request Dates of the new user.
+     * @return Mono with the response of the new user.
      */
     @Override
     public Mono<UserResponse> createUser(CreateUserRequest request) {
         return userRepository.existsByEmail(request.getEmail())
                 .flatMap(exists -> {
                     if (exists) {
-                        return Mono.error(new RuntimeException("El email ya está registrado."));
+                        return Mono.error(new EmailAlreadyExistsException("email.already.exists"));
                     }
                     User user = new User();
                     user.setEmail(request.getEmail());
@@ -55,37 +57,37 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * Obtiene un usuario por su ID.
+     * Gets a user by ID.
      *
-     * @param id ID del usuario.
-     * @return Mono con la respuesta del usuario.
+     * @param id User ID.
+     * @return Mono with the response of the user.
      */
     @Override
     public Mono<UserResponse> getUserById(Long id) {
         return userRepository.findById(id)
                 .map(this::toResponse)
-                .switchIfEmpty(Mono.error(new RuntimeException("Usuario no encontrado")));
+                .switchIfEmpty(Mono.error(new UserNotFoundException("user.not.found")));
     }
 
     /**
-     * Obtiene un usuario por su email.
+     * Gets a user by email.
      *
-     * @param email Email del usuario.
-     * @return Mono con la respuesta del usuario.
+     * @param email User email.
+     * @return Mono with the response of the user.
      */
     @Override
     public Mono<UserResponse> getUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .map(this::toResponse)
-                .switchIfEmpty(Mono.error(new RuntimeException("Usuario no encontrado")));
+                .switchIfEmpty(Mono.error(new UserNotFoundException("user.not.found")));
     }
 
     /**
-     * Actualiza un usuario existente.
+     * Updates a user.
      *
-     * @param id      ID del usuario a actualizar.
-     * @param request Datos para actualizar el usuario.
-     * @return Mono con la respuesta del usuario actualizado.
+     * @param id      User ID to update.
+     * @param request Dates to update.
+     * @return Mono with the response of the updated user.
      */
     @Override
     public Mono<UserResponse> updateUser(Long id, UpdateUserRequest request) {
@@ -101,13 +103,13 @@ public class UserServiceImpl implements UserService {
                     return userRepository.save(existingUser)
                             .map(this::toResponse);
                 })
-                .switchIfEmpty(Mono.error(new RuntimeException("Usuario no encontrado")));
+                .switchIfEmpty(Mono.error(new UserNotFoundException("user.not.found")));
     }
 
     /**
-     * Obtiene todos los usuarios.
+     * Get all users.
      *
-     * @return Flux con las respuestas de todos los usuarios.
+     * @return Flux with the response of all users.
      */
     @Override
     public Flux<UserResponse> getAllUsers() {
@@ -116,10 +118,10 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * Elimina un usuario de forma lógica.
+     * Soft deletes a user.
      *
-     * @param id ID del usuario a eliminar.
-     * @return Mono vacío.
+     * @param id User ID to delete.
+     * @return Mono empty.
      */
     @Override
     public Mono<Void> softDeleteUser(Long id) {
@@ -129,15 +131,15 @@ public class UserServiceImpl implements UserService {
                     user.setUpdatedAt(LocalDateTime.now());
                     return userRepository.save(user);
                 })
-                .switchIfEmpty(Mono.error(new RuntimeException("Usuario no encontrado")))
+                .switchIfEmpty(Mono.error(new UserNotFoundException("user.not.found")))
                 .then();
     }
 
     /**
-     * Restaura un usuario eliminado de forma lógica.
+     * Restore a deleted user.
      *
-     * @param id ID del usuario a restaurar.
-     * @return Mono con la respuesta del usuario restaurado.
+     * @param id User ID to restore.
+     * @return Mono with the response of the restored user.
      */
     @Override
     public Mono<UserResponse> restoreUser(Long id) {
@@ -148,14 +150,14 @@ public class UserServiceImpl implements UserService {
                     return userRepository.save(user)
                             .map(this::toResponse);
                 })
-                .switchIfEmpty(Mono.error(new RuntimeException("Usuario no encontrado")));
+                .switchIfEmpty(Mono.error(new UserNotFoundException("user.not.found")));
     }
 
     /**
-     * Elimina un usuario de forma permanente.
+     * Eliminate an User Permanently.
      *
-     * @param id ID del usuario a eliminar.
-     * @return Mono vacío.
+     * @param id User ID to delete.
+     * @return Mono empty.
      */
     @Override
     public Mono<Void> deleteUserPermanently(Long id) {
@@ -163,10 +165,10 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * Convierte un objeto User a UserResponse.
+     * Convert an object User to a UserResponse.
      *
-     * @param user Usuario a convertir.
-     * @return Respuesta del usuario.
+     * @param user User to convert.
+     * @return Answer response.
      */
     private UserResponse toResponse(User user) {
         return new UserResponse(
