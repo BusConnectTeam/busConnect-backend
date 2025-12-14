@@ -42,6 +42,29 @@ services:
       postgres:
         condition: service_healthy
 
+ # Catalog Service
+  catalog-service:  # ⚠️ Faltaba indentación aquí
+    build:
+      context: .
+      dockerfile: catalog-service/Dockerfile
+    container_name: busconnect-catalog-service
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-busconnectdb}
+      DB_USERNAME: ${POSTGRES_USER:-busconnect_user}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      OPENROUTE_API_KEY: ${OPENROUTE_API_KEY}
+    ports:
+      - "8083:8083"
+    networks:
+      - busconnect-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+        
 volumes:
   postgres-data:
     driver: local
