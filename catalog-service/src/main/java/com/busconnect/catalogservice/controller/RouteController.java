@@ -13,6 +13,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -138,4 +140,34 @@ public class RouteController {
         return Mono.just(ResponseEntity.ok("Catalog Service - Routes API is running"))
                 .doOnSubscribe(subscription -> log.debug("Health check solicitado"));
     }
+
+@GetMapping("/rate-limit-stats")
+@Operation(
+    summary = "Estadísticas de rate limiting", 
+    description = "Muestra el uso actual de la cuota de OpenRouteService API"
+)
+@ApiResponses(value = {
+    @ApiResponse(responseCode = "200", description = "Estadísticas obtenidas exitosamente"),
+    @ApiResponse(responseCode = "500", description = "Error obteniendo estadísticas")
+})
+public Mono<ResponseEntity<OpenRouteService.RateLimitStats>> getRateLimitStats() {
+    log.debug("Solicitando estadísticas de rate limit de OpenRouteService");
+    
+    return openRouteService.getRateLimitStats()
+            .doOnSuccess(stats -> {
+                if (stats != null) {
+                    log.info("Rate Limit Stats - Usado: {}/{} requests ({:.1f}% del límite diario), " +
+                            "Restantes: {}, Total histórico: {}",
+                        stats.requestsLast24h(),
+                        stats.maxRequestsPerDay(),
+                        stats.usagePercentage(),
+                        stats.remainingRequests(),
+                        stats.totalRequestsAllTime());
+                }
+            })
+            .map(ResponseEntity::ok)
+            .defaultIfEmpty(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build())
+            .doOnError(error -> 
+                log.error("Error obteniendo estadísticas de rate limit: {}", error.getMessage()));
+}
 }

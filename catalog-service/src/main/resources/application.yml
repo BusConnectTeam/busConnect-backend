@@ -7,9 +7,11 @@ spring:
 
   # ✅ Configuración R2DBC (Reactiva)
   r2dbc:
-    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}?schema=catalog
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}
     username: ${DB_USERNAME:busconnect_user}
     password: ${DB_PASSWORD}
+    properties:
+      schema: catalog
     pool:
       initial-size: 10
       max-size: 20
@@ -42,10 +44,10 @@ openroute:
 # ✅ Logging para R2DBC
 logging:
   level:
-    '[com.busconnect.catalogservice]': DEBUG
-    '[io.r2dbc.postgresql.QUERY]': DEBUG
-    '[io.r2dbc.postgresql.PARAM]': DEBUG
-    '[org.springframework.r2dbc]': DEBUG
+    "[com.busconnect.catalogservice]": DEBUG
+    "[io.r2dbc.postgresql.QUERY]": DEBUG
+    "[io.r2dbc.postgresql.PARAM]": DEBUG
+    "[org.springframework.r2dbc]": DEBUG
 
 springdoc:
   api-docs:
