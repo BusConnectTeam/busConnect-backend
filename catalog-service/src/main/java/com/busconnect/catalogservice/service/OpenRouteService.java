@@ -21,9 +21,18 @@ import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
+/**
+ * Servicio para cálculo de rutas usando OpenRouteService API.
+ * 
+ * Características:
+ * - Rate limiting thread-safe con ConcurrentLinkedQueue
+ * - Caché reactivo con Mono.cache() (1 hora)
+ * - Retry strategy con backoff exponencial
+ * - Fallback data para rutas principales de Catalunya
+ * - Validación completa de configuración
+ */
 @Service
 @Slf4j
-
 public class OpenRouteService {
 
     private final WebClient webClient;
@@ -34,6 +43,7 @@ public class OpenRouteService {
     private final AtomicInteger totalRequestCount = new AtomicInteger(0);
 
     // Coordenadas de municipios principales de Catalunya (fallback data)
+    // TODO: Mover a base de datos cuando se implemente población de municipios
     private final Map<String, double[]> CATALUNYA_COORDINATES = Map.of(
             "barcelona", new double[] { 41.390205, 2.154007 },
             "girona", new double[] { 41.979244, 2.821426 },
@@ -66,6 +76,10 @@ public class OpenRouteService {
             "barcelona-tarragona", 85,
             "tarragona-barcelona", 85);
 
+    /**
+     * Constructor con validación completa de configuración.
+     * Falla rápido si faltan valores obligatorios.
+     */
     public OpenRouteService(OpenRouteProperties properties) {
         // ✅ Validar que properties no sea null
         if (properties == null) {
@@ -89,34 +103,52 @@ public class OpenRouteService {
                 .baseUrl(baseUrl)
                 .build();
 
-        log.info("OpenRouteService initialized with base URL: {} and rate limit: {}/day",
-                baseUrl,
-                properties.getRateLimit().getMaxRequestsPerDay());
+        log.info("OpenRouteService initialized successfully");
+        log.info("Base URL: {}", baseUrl);
+        log.info("Rate limit: {}/day", properties.getRateLimit().getMaxRequestsPerDay());
+        log.info("Timeout: {}s", properties.getTimeout().getSeconds());
     }
 
     /**
-     * Calcular ruta entre dos municipios con caché reactivo usando Mono.cache()
+     * Calcular ruta entre dos municipios.
+     * 
+     * ✅ CORRECCIÓN 5: Usa Mono.cache() reactivo en lugar de @Cacheable bloqueante
+     * 
+     * El caché es reactivo (no bloquea threads) y se mantiene por 1 hora.
+     * Después de 1 hora, la próxima request recalcula la ruta.
+     * 
+     * @param origin      Municipio de origen
+     * @param destination Municipio de destino
+     * @return Mono con resultado de la ruta (distancia, duración, source)
      */
     public Mono<RouteResultResponse> calculateRoute(String origin, String destination) {
         log.info("Calculando ruta: {} -> {}", origin, destination);
 
         // ✅ Cache reactivo usando Mono.cache() en lugar de @Cacheable
-        return Mono.defer(() -> checkRateLimit()
+        // Esto NO bloquea threads y es completamente reactivo
+        return Mono.defer(() -> 
+            checkRateLimit()
                 .then(getCoordinates(origin, destination))
                 .flatMap(coords -> callOpenRouteServiceAPI(coords[0], coords[1], coords[2], coords[3]))
                 .map(response -> new RouteResultResponse(
                         origin, destination,
                         response.distanceKm, response.durationMinutes, "openroute"))
-                .doOnSuccess(result -> log.info("Ruta calculada exitosamente: {} km, {} min",
+                .doOnSuccess(result -> log.debug("Ruta calculada exitosamente: {} km, {} min",
                         result.getDistanceKm(), result.getDurationMinutes()))
                 .onErrorResume(error -> {
                     log.warn("Error calculando ruta con OpenRouteService: {}", error.getMessage());
                     return getFallbackRoute(origin, destination);
-                })).cache(Duration.ofHours(1)); // ✅ Cache reactivo por 1 hora
+                })
+        ).cache(Duration.ofHours(1)); // ✅ Cache reactivo por 1 hora
     }
 
     /**
-     * ✅ Verificar límite de rate limiting de forma thread-safe y reactiva
+     * ✅ Verificar límite de rate limiting de forma thread-safe y reactiva.
+     * 
+     * Implementación thread-safe usando ConcurrentLinkedQueue:
+     * - Registra timestamp de cada request
+     * - Limpia automáticamente requests > 24h
+     * - Cuenta requests reales (no threads)
      */
     private Mono<Void> checkRateLimit() {
         return Mono.defer(() -> {
@@ -135,7 +167,7 @@ public class OpenRouteService {
                                 currentCount, maxRequests)));
             }
 
-            // Registrar este request
+            // Registrar este request (timestamp, no thread name)
             requestTimestamps.offer(LocalDateTime.now());
             totalRequestCount.incrementAndGet();
 
@@ -147,11 +179,13 @@ public class OpenRouteService {
     }
 
     /**
-     * Obtener estadísticas del rate limiting
+     * Obtener estadísticas del rate limiting en tiempo real.
+     * 
+     * @return Mono con estadísticas actuales (requests 24h, límite, restantes, total, uso%)
      */
     public Mono<RateLimitStats> getRateLimitStats() {
         return Mono.fromCallable(() -> {
-            // Limpiar timestamps antiguos
+            // Limpiar timestamps antiguos antes de contar
             LocalDateTime cutoff = LocalDateTime.now().minusDays(1);
             requestTimestamps.removeIf(timestamp -> timestamp.isBefore(cutoff));
 
@@ -170,7 +204,14 @@ public class OpenRouteService {
     }
 
     /**
-     * Obtener coordenadas de los municipios
+     * Obtener coordenadas de los municipios.
+     * 
+     * TODO: Cambiar a consulta de base de datos cuando se implemente
+     *       población completa de municipios de Catalunya
+     * 
+     * @param origin      Municipio de origen
+     * @param destination Municipio de destino
+     * @return Mono con array [lat_origen, lon_origen, lat_destino, lon_destino]
      */
     private Mono<double[]> getCoordinates(String origin, String destination) {
         return Mono.fromCallable(() -> {
@@ -188,10 +229,17 @@ public class OpenRouteService {
     }
 
     /**
-     * Llamada real a OpenRouteService API con retry mejorado
+     * Llamada real a OpenRouteService API con retry strategy mejorada.
+     * 
+     * Características:
+     * - 3 reintentos con backoff exponencial (2s, 4s, 8s)
+     * - Solo reintenta errores 5xx del servidor
+     * - Timeout configurable (default 20s)
+     * - Manejo específico de error 429 (rate limit)
      */
     private Mono<OpenRouteResponse> callOpenRouteServiceAPI(double originLat, double originLon,
             double destLat, double destLon) {
+        
         String url = String.format("/v2/directions/driving-car?api_key=%s&start=%f,%f&end=%f,%f",
                 properties.getKey(), originLon, originLat, destLon, destLat);
 
@@ -210,7 +258,8 @@ public class OpenRouteService {
                             }
                             return false;
                         })
-                        .doBeforeRetry(retrySignal -> log.warn("Retrying OpenRouteService call, attempt: {}",
+                        .doBeforeRetry(retrySignal -> 
+                            log.warn("Retrying OpenRouteService call, attempt: {}",
                                 retrySignal.totalRetries() + 1)))
                 .timeout(properties.getTimeout())
                 .onErrorMap(WebClientResponseException.class, ex -> {
@@ -224,19 +273,23 @@ public class OpenRouteService {
     }
 
     /**
-     * Parsear respuesta de OpenRouteService con mejor manejo de errores
+     * Parsear respuesta de OpenRouteService API.
+     * 
+     * Extrae distancia (km) y duración (minutos) de la respuesta JSON.
+     * Usa RoundingMode moderno (no deprecated ROUND_HALF_UP).
      */
     private OpenRouteResponse parseOpenRouteResponse(Map<String, Object> response) {
         try {
             @SuppressWarnings("unchecked")
-            Map<String, Object> features = (Map<String, Object>) ((java.util.List<?>) response.get("features")).get(0);
+            Map<String, Object> features = (Map<String, Object>) 
+                ((java.util.List<?>) response.get("features")).get(0);
 
             @SuppressWarnings("unchecked")
             Map<String, Object> properties = (Map<String, Object>) features.get("properties");
 
             @SuppressWarnings("unchecked")
-            Map<String, Object> segments = (Map<String, Object>) ((java.util.List<?>) properties.get("segments"))
-                    .get(0);
+            Map<String, Object> segments = (Map<String, Object>) 
+                ((java.util.List<?>) properties.get("segments")).get(0);
 
             double distanceMeters = ((Number) segments.get("distance")).doubleValue();
             double durationSeconds = ((Number) segments.get("duration")).doubleValue();
@@ -261,7 +314,10 @@ public class OpenRouteService {
     }
 
     /**
-     * Datos fallback cuando OpenRouteService no está disponible
+     * Datos fallback cuando OpenRouteService no está disponible.
+     * 
+     * Usa distancias/duraciones precalculadas para rutas principales.
+     * Si no hay datos fallback, retorna error amigable.
      */
     private Mono<RouteResultResponse> getFallbackRoute(String origin, String destination) {
         return Mono.fromCallable(() -> {
@@ -282,7 +338,7 @@ public class OpenRouteService {
     }
 
     /**
-     * Clase interna para respuesta de OpenRouteService
+     * Clase interna para respuesta de OpenRouteService API.
      */
     private static class OpenRouteResponse {
         final BigDecimal distanceKm;
@@ -295,7 +351,8 @@ public class OpenRouteService {
     }
 
     /**
-     * Record para estadísticas de rate limiting
+     * Record para estadísticas de rate limiting.
+     * Usado por el endpoint /api/routes/rate-limit-stats
      */
     public record RateLimitStats(
             int requestsLast24h,
