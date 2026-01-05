@@ -29,10 +29,6 @@ public class User {
     @Column("email")
     private String email;
 
-    @NotBlank(message = "{password.required}")
-    @Column("password_hash")
-    private String passwordHash;
-
     @NotBlank(message = "{firstName.required}")
     @Column("first_name")
     private String firstName;

@@ -42,7 +42,6 @@ public class UserServiceImpl implements UserService {
                     }
                     User user = new User();
                     user.setEmail(request.getEmail());
-                    user.setPasswordHash(request.getPassword()); // En la siguiente fase se encriptará
                     user.setFirstName(request.getFirstName());
                     user.setLastName(request.getLastName());
                     user.setPhone(request.getPhone());
@@ -52,6 +51,8 @@ public class UserServiceImpl implements UserService {
                     user.setActive(true);
 
                     return userRepository.save(user)
+                            .doOnSuccess(savedUser ->
+                                    log.info("User created successfully with ID: {}", savedUser.getId()))
                             .map(this::toResponse);
                 });
     }
@@ -94,7 +95,6 @@ public class UserServiceImpl implements UserService {
         return userRepository.findById(id)
                 .flatMap(existingUser -> {
                     if (request.getEmail() != null) existingUser.setEmail(request.getEmail());
-                    if (request.getPassword() != null) existingUser.setPasswordHash(request.getPassword());
                     if (request.getFirstName() != null) existingUser.setFirstName(request.getFirstName());
                     if (request.getLastName() != null) existingUser.setLastName(request.getLastName());
                     if (request.getPhone() != null) existingUser.setPhone(request.getPhone());
