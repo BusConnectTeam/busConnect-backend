@@ -6,10 +6,13 @@ spring:
     name: user-service
 
   # ✅ Configuración R2DBC (Reactiva)
+spring:
   r2dbc:
-    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}?schema=user_service
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}
     username: ${DB_USERNAME:busconnect_user}
     password: ${DB_PASSWORD}
+    properties:
+      schema: user_service
     pool:
       initial-size: 10
       max-size: 20
