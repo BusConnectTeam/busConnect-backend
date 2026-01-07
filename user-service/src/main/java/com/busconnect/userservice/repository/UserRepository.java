@@ -18,7 +18,7 @@ public interface UserRepository extends R2dbcRepository <User, Long> {
      * @param email el correo electrónico del usuario.
      * @return un Mono que emite el usuario si se encuentra, o vacío si no existe.
      */
-   @Query("SELECT * FROM users WHERE email = :email")
+   @Query("SELECT * FROM user_service.users WHERE email = :email")
    Mono<User> findByEmail(String email);
 
     /**
@@ -26,7 +26,7 @@ public interface UserRepository extends R2dbcRepository <User, Long> {
     * @param email el correo electrónico a verificar.
     * @return un Mono que emite true si el usuario existe, false en caso contrario.
      */
-    @Query("SELECT EXISTS(SELECT 1 FROM users WHERE email = :email)")
+    @Query("SELECT EXISTS(SELECT 1 FROM user_service.users WHERE email = :email)")
     Mono<Boolean> existsByEmail(String email);
 
     /**
@@ -34,7 +34,7 @@ public interface UserRepository extends R2dbcRepository <User, Long> {
      * @param role el rol del usuario.
      * @return un Flux que emite los usuarios con el rol especificado.
      */
-    @Query("SELECT * FROM users WHERE role = :role")
+    @Query("SELECT * FROM user_service.users WHERE role = :role")
     Flux<User> findByRole(UserRole role);
 
     /**
@@ -42,17 +42,8 @@ public interface UserRepository extends R2dbcRepository <User, Long> {
      *
      * @return un flujo de usuarios activos.
      */
-    @Query("SELECT * FROM users WHERE active = true")
+    @Query("SELECT * FROM user_service.users WHERE active = true")
     Flux<User> findAllActive();
-
-    /**
-     * Elimina lógicamente (soft delete) un usuario marcándolo como inactivo.
-     *
-     * @param id identificador del usuario.
-     * @return un Mono indicando el número de registros actualizados.
-     */
-    @Query("UPDATE users SET active = false WHERE id = :id")
-    Mono<Integer> softDeleteById(Long id);
 
 }
 
