@@ -29,6 +29,7 @@ public class UserServiceImpl implements UserService {
 
     /**
      * Create a new user.
+     * Note: Email is logging in DEBUG level to be PII (GDPR compliance).
      *
      * @param request Dates of the new user.
      * @return Mono with the response of the new user.
@@ -52,7 +53,7 @@ public class UserServiceImpl implements UserService {
 
                     return userRepository.save(user)
                             .doOnSuccess(savedUser ->
-                                    log.info("User created successfully with ID: {}", savedUser.getId()))
+                                    log.debug("User created successfully with ID: {}", savedUser.getId()))
                             .map(this::toResponse);
                 });
     }
@@ -65,6 +66,8 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public Mono<UserResponse> getUserById(Long id) {
+        log.debug("Fetching user by ID: {}", id);
+
         return userRepository.findById(id)
                 .map(this::toResponse)
                 .switchIfEmpty(Mono.error(new UserNotFoundException("user.not.found")));
@@ -72,12 +75,15 @@ public class UserServiceImpl implements UserService {
 
     /**
      * Gets a user by email.
+     * Note: Email is logging in DEBUG level to be PII (GDPR compliance).
      *
      * @param email User email.
      * @return Mono with the response of the user.
      */
     @Override
     public Mono<UserResponse> getUserByEmail(String email) {
+        log.debug("Fetching user by email: {}", email);
+
         return userRepository.findByEmail(email)
                 .map(this::toResponse)
                 .switchIfEmpty(Mono.error(new UserNotFoundException("user.not.found")));
@@ -92,6 +98,8 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public Mono<UserResponse> updateUser(Long id, UpdateUserRequest request) {
+        log.debug("Updating user with ID: {}", id);
+
         return userRepository.findById(id)
                 .flatMap(existingUser -> {
                     if (request.getEmail() != null) existingUser.setEmail(request.getEmail());
@@ -113,6 +121,8 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public Flux<UserResponse> getAllUsers() {
+        log.debug("Fetching all users");
+
         return userRepository.findAll()
                 .map(this::toResponse);
     }
@@ -125,6 +135,8 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public Mono<Void> softDeleteUser(Long id) {
+        log.debug("Soft deleting user with ID: {}", id);
+
         return userRepository.findById(id)
                 .flatMap(user -> {
                     user.setActive(false);
@@ -143,6 +155,8 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public Mono<UserResponse> restoreUser(Long id) {
+        log.info("Restoring user with ID: {}", id);
+
         return userRepository.findById(id)
                 .flatMap(user -> {
                     user.setActive(true);
@@ -161,6 +175,8 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public Mono<Void> deleteUserPermanently(Long id) {
+        log.warn("PERMANENTLY deleting user with ID: {}", id);
+
         return userRepository.deleteById(id);
     }
 
