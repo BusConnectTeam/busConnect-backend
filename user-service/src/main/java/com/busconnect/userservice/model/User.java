@@ -24,23 +24,18 @@ public class User {
     @Id
     private Long id;
 
-    @Email(message = "{email.invalid}")
-    @NotBlank(message = "{email.required}")
     @Column("email")
     private String email;
 
-    @NotBlank(message = "{firstName.required}")
     @Column("first_name")
     private String firstName;
 
-    @NotBlank(message = "{lastName.required}")
     @Column("last_name")
     private String lastName;
 
     @Column("phone")
     private String phone;
 
-    @NotNull(message = "{role.required}")
     @Column("role")
     private UserRole role;
 
