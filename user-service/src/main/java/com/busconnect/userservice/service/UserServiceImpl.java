@@ -4,6 +4,7 @@ import com.busconnect.userservice.dto.request.CreateUserRequest;
 import com.busconnect.userservice.dto.request.UpdateUserRequest;
 import com.busconnect.userservice.dto.response.UserResponse;
 import com.busconnect.userservice.exception.EmailAlreadyExistsException;
+import com.busconnect.userservice.exception.UserAlreadyActiveException;
 import com.busconnect.userservice.exception.UserNotFoundException;
 import com.busconnect.userservice.model.User;
 import com.busconnect.userservice.repository.UserRepository;
@@ -178,6 +179,10 @@ public class UserServiceImpl implements UserService {
 
         return userRepository.findById(id)
                 .flatMap(user -> {
+                    // Verificar si el usuario ya está activo
+                    if (user.isActive()) {
+                        return Mono.error(new UserAlreadyActiveException("user.already.active"));
+                    }
                     user.setActive(true);
                     user.setUpdatedAt(LocalDateTime.now());
                     return userRepository.save(user)
