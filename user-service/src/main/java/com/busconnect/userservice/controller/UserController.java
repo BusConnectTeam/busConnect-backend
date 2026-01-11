@@ -19,6 +19,10 @@ import reactor.core.publisher.Mono;
 
 /**
  * Controller for user-related endpoints with Reactive.
+ * Logging Strategy:
+ *  - DEBUG: Routine operations and requests containing PII (emails)
+ *  - ERROR: Exception handling
+ *  - Success logs are handled at service layer to avoid duplication
  */
 @Slf4j
 @Tag(name = "Users", description = "API for user management")
@@ -44,14 +48,14 @@ public class UserController {
     @PostMapping
     public Mono<ResponseEntity<UserResponse>> createUser(
             @Valid @RequestBody CreateUserRequest request) {
-        log.info("Received request to create user with email: {}", request.getEmail());
+        log.debug("Received request to create user with email: {}", request.getEmail());
 
         return userService.createUser(request)
                 .map(userResponse -> ResponseEntity
                         .status(HttpStatus.CREATED)
                         .body(userResponse))
                 .doOnSuccess(response ->
-                        log.info("User created successfully with ID: {}", response.getBody().getId()))
+                        log.debug("User created successfully with ID: {}", response.getBody().getId()))
                 .doOnError(error -> log.error("Error creating user: {}", error.getMessage()));
     }
 
@@ -68,12 +72,12 @@ public class UserController {
     })
     @GetMapping("/{id}")
     public Mono<ResponseEntity<UserResponse>> getUserById(@PathVariable Long id) {
-        log.info("Received request to get user with ID: {}", id);
+        log.debug("Received request to get user with ID: {}", id);
 
         return userService.getUserById(id)
                 .map(userResponse -> ResponseEntity.ok(userResponse))
                 .doOnSuccess(response ->
-                        log.info("User retrieved successfully with ID: {}", response.getBody().getId()))
+                        log.debug("User retrieved successfully with ID: {}", response.getBody().getId()))
                 .doOnError(error -> log.error("Error retrieving user: {}", error.getMessage()));
     }
 
@@ -90,12 +94,12 @@ public class UserController {
     })
     @GetMapping("/email/{email}")
     public Mono<ResponseEntity<UserResponse>> getUserByEmail(@PathVariable String email) {
-        log.info("Received request to get user with email: {}", email);
+        log.debug("Received request to get user with email: {}", email);
 
         return userService.getUserByEmail(email)
                 .map(userResponse -> ResponseEntity.ok(userResponse))
                 .doOnSuccess(response ->
-                        log.info("User retrieved successfully with email: {}", response.getBody().getEmail()))
+                        log.debug("User retrieved successfully with email: {}", response.getBody().getEmail()))
                 .doOnError(error -> log.error("Error retrieving user: {}", error.getMessage()));
     }
 
@@ -114,12 +118,12 @@ public class UserController {
     @PutMapping("/{id}")
     public Mono<ResponseEntity<UserResponse>> updateUserById(@PathVariable Long id,
                                                              @Valid @RequestBody UpdateUserRequest request) {
-        log.info("Received request to update user with ID: {}", id);
+        log.debug("Received request to update user with ID: {}", id);
 
         return userService.updateUser(id, request)
                 .map(userResponse -> ResponseEntity.ok(userResponse))
                 .doOnSuccess(response ->
-                        log.info("User updated successfully with ID: {}", response.getBody().getId()))
+                        log.debug("User updated successfully with ID: {}", response.getBody().getId()))
                 .doOnError(error -> log.error("Error updating user: {}", error.getMessage()));
     }
 
@@ -134,10 +138,10 @@ public class UserController {
     })
     @GetMapping
     public Flux<UserResponse> getAllUsers() {
-        log.info("Received request to get all users");
+        log.debug("Received request to get all users");
 
         return userService.getAllUsers()
-                .doOnComplete(() -> log.info("All users retrieved successfully"))
+                .doOnComplete(() -> log.debug("All users retrieved successfully"))
                 .doOnError(error -> log.error("Error retrieving users: {}", error.getMessage()));
     }
 
@@ -154,12 +158,12 @@ public class UserController {
     })
     @DeleteMapping("/{id}")
     public Mono<ResponseEntity<Void>> softDeleteUserById(@PathVariable Long id) {
-        log.info("Received request to delete user with ID: {}", id);
+        log.debug("Received request to delete user with ID: {}", id);
 
         return userService.softDeleteUser(id)
                 .then(Mono.just(ResponseEntity.noContent().<Void>build()))
                 .doOnSuccess(response ->
-                        log.info("User soft deleted successfully with ID: {}", id))
+                        log.debug("User soft deleted successfully with ID: {}", id))
                 .doOnError(error -> log.error("Error soft deleting user: {}", error.getMessage()));
     }
 
@@ -176,12 +180,12 @@ public class UserController {
     })
     @PostMapping("/{id}/restore")
     public Mono<ResponseEntity<UserResponse>> restoreUserById(@PathVariable Long id) {
-        log.info("Received request to restore user with ID: {}", id);
+        log.debug("Received request to restore user with ID: {}", id);
 
         return userService.restoreUser(id)
                 .map(userResponse -> ResponseEntity.ok(userResponse))
                 .doOnSuccess(response ->
-                        log.info("User restored successfully with ID: {}", response.getBody().getId()))
+                        log.debug("User restored successfully with ID: {}", response.getBody().getId()))
                 .doOnError(error -> log.error("Error restoring user: {}", error.getMessage()));
     }
 
@@ -198,12 +202,12 @@ public class UserController {
     })
     @DeleteMapping("/{id}/permanent")
     public Mono<ResponseEntity<Object>> permanentlyDeleteUserById(@PathVariable Long id) {
-        log.info("Received request to permanently delete user with ID: {}", id);
+        log.debug("Received request to permanently delete user with ID: {}", id);
 
         return userService.deleteUserPermanently(id)
                 .then(Mono.just(ResponseEntity.noContent().build()))
                 .doOnSuccess(response ->
-                        log.info("User permanently deleted with ID: {}", id))
+                        log.debug("User permanently deleted with ID: {}", id))
                 .doOnError(error -> log.error("Error permanently deleting user: {}", error.getMessage()));
     }
 
