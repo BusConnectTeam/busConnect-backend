@@ -83,6 +83,35 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handles UserAlreadyActiveException.
+     *
+     * @param ex the exception
+     * @return Mono with error response
+     */
+    @ExceptionHandler(UserAlreadyActiveException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleUserAlreadyActiveException(UserAlreadyActiveException ex) {
+        log.error("UserAlreadyActiveException: {}", ex.getMessage());
+
+        return Mono.fromCallable(() ->{
+            String localizedMessage = messageSource.getMessage(
+                    ex.getMessage(),
+                    null,
+                    ex.getMessage(),
+                    LocaleContextHolder.getLocale()
+            );
+
+            ErrorResponse errorResponse = new ErrorResponse(
+                    HttpStatus.BAD_REQUEST.value(),
+                    "USER_ALREADY_ACTIVE",
+                    localizedMessage,
+                    LocalDateTime.now()
+            );
+
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        });
+    }
+
+    /**
      * Handles generic exceptions as fallback.
      *
      * @param ex the exception
