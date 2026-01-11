@@ -102,16 +102,35 @@ public class UserServiceImpl implements UserService {
 
         return userRepository.findById(id)
                 .flatMap(existingUser -> {
-                    if (request.getEmail() != null) existingUser.setEmail(request.getEmail());
-                    if (request.getFirstName() != null) existingUser.setFirstName(request.getFirstName());
-                    if (request.getLastName() != null) existingUser.setLastName(request.getLastName());
-                    if (request.getPhone() != null) existingUser.setPhone(request.getPhone());
-                    if (request.getRole() != null) existingUser.setRole(request.getRole());
-                    existingUser.setUpdatedAt(LocalDateTime.now());
-                    return userRepository.save(existingUser)
-                            .map(this::toResponse);
+                    if (request.getEmail() != null && !request.getEmail().equals(existingUser.getEmail())) {
+                        // Verifica si el email ya existe en otro usuario
+                        return userRepository.existsByEmail(request.getEmail())
+                                .flatMap(emailExists -> {
+                                    if (emailExists) {
+                                        return Mono.error(new EmailAlreadyExistsException("email.already.exists"));
+                                    }
+                                    existingUser.setEmail(request.getEmail());
+                                    if (request.getFirstName() != null) existingUser.setFirstName(request.getFirstName());
+                                    if (request.getLastName() != null) existingUser.setLastName(request.getLastName());
+                                    if (request.getPhone() != null) existingUser.setPhone(request.getPhone());
+                                    if (request.getRole() != null) existingUser.setRole(request.getRole());
+                                    existingUser.setUpdatedAt(LocalDateTime.now());
+                                    return userRepository.save(existingUser)
+                                            .map(this::toResponse);
+                                });
+                    } else {
+                        // Continúa con el resto de las actualizaciones si el email no cambia
+                        if (request.getFirstName() != null) existingUser.setFirstName(request.getFirstName());
+                        if (request.getLastName() != null) existingUser.setLastName(request.getLastName());
+                        if (request.getPhone() != null) existingUser.setPhone(request.getPhone());
+                        if (request.getRole() != null) existingUser.setRole(request.getRole());
+                        existingUser.setUpdatedAt(LocalDateTime.now());
+                        return userRepository.save(existingUser)
+                                .map(this::toResponse);
+                    }
                 })
                 .switchIfEmpty(Mono.error(new UserNotFoundException("user.not.found")));
+
     }
 
     /**
