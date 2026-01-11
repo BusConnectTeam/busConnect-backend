@@ -43,7 +43,7 @@ public class GlobalExceptionHandler {
 
             ErrorResponse errorResponse = new ErrorResponse(
                     HttpStatus.CONFLICT.value(),
-                    HttpStatus.CONFLICT.getReasonPhrase(),
+                    "USER_EMAIL_EXISTS",
                     localizedMessage,
                     LocalDateTime.now()
             );
@@ -73,7 +73,7 @@ public class GlobalExceptionHandler {
 
             ErrorResponse errorResponse = new ErrorResponse(
                     HttpStatus.NOT_FOUND.value(),
-                    HttpStatus.NOT_FOUND.getReasonPhrase(),
+                    "USER_NOT_FOUND",
                     localizedMessage,
                     LocalDateTime.now()
             );
@@ -95,8 +95,8 @@ public class GlobalExceptionHandler {
         return Mono.fromCallable(() -> {
             ErrorResponse errorResponse = new ErrorResponse(
                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                    HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
-                    "An unexpected error occurred",
+                    "INTERNAL_SERVER_ERROR",
+                    "An unexpected error occurred. Please contact support if this persists.",
                     LocalDateTime.now()
             );
 
