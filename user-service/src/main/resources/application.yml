@@ -6,7 +6,6 @@ spring:
     name: user-service
 
   # ✅ Configuración R2DBC (Reactiva)
-spring:
   r2dbc:
     url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}
     username: ${DB_USERNAME:busconnect_user}
@@ -48,10 +47,3 @@ logging:
     '[io.r2dbc.postgresql.QUERY]': DEBUG
     '[io.r2dbc.postgresql.PARAM]': DEBUG
     '[org.springframework.r2dbc]': DEBUG
-
-# Configuración para el manejo de idiomas
-spring:
-  messages:
-    basename: messages
-    encoding: UTF-8
-    fallback-to-system-locale: false
