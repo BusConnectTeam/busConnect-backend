@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono;
 
 /**
  * Controller for user-related endpoints with Reactive.
+ *
  * Logging Strategy:
  *  - DEBUG: Routine operations and requests containing PII (emails)
  *  - ERROR: Exception handling
@@ -54,8 +55,6 @@ public class UserController {
                 .map(userResponse -> ResponseEntity
                         .status(HttpStatus.CREATED)
                         .body(userResponse))
-                .doOnSuccess(response ->
-                        log.debug("User created successfully with ID: {}", response.getBody().getId()))
                 .doOnError(error -> log.error("Error creating user: {}", error.getMessage()));
     }
 
@@ -76,8 +75,6 @@ public class UserController {
 
         return userService.getUserById(id)
                 .map(userResponse -> ResponseEntity.ok(userResponse))
-                .doOnSuccess(response ->
-                        log.debug("User retrieved successfully with ID: {}", response.getBody().getId()))
                 .doOnError(error -> log.error("Error retrieving user: {}", error.getMessage()));
     }
 
@@ -98,8 +95,6 @@ public class UserController {
 
         return userService.getUserByEmail(email)
                 .map(userResponse -> ResponseEntity.ok(userResponse))
-                .doOnSuccess(response ->
-                        log.debug("User retrieved successfully with email: {}", response.getBody().getEmail()))
                 .doOnError(error -> log.error("Error retrieving user: {}", error.getMessage()));
     }
 
@@ -122,8 +117,6 @@ public class UserController {
 
         return userService.updateUser(id, request)
                 .map(userResponse -> ResponseEntity.ok(userResponse))
-                .doOnSuccess(response ->
-                        log.debug("User updated successfully with ID: {}", response.getBody().getId()))
                 .doOnError(error -> log.error("Error updating user: {}", error.getMessage()));
     }
 
@@ -141,7 +134,6 @@ public class UserController {
         log.debug("Received request to get all users");
 
         return userService.getAllUsers()
-                .doOnComplete(() -> log.debug("All users retrieved successfully"))
                 .doOnError(error -> log.error("Error retrieving users: {}", error.getMessage()));
     }
 
@@ -162,8 +154,6 @@ public class UserController {
 
         return userService.softDeleteUser(id)
                 .then(Mono.just(ResponseEntity.noContent().<Void>build()))
-                .doOnSuccess(response ->
-                        log.debug("User soft deleted successfully with ID: {}", id))
                 .doOnError(error -> log.error("Error soft deleting user: {}", error.getMessage()));
     }
 
@@ -184,8 +174,6 @@ public class UserController {
 
         return userService.restoreUser(id)
                 .map(userResponse -> ResponseEntity.ok(userResponse))
-                .doOnSuccess(response ->
-                        log.debug("User restored successfully with ID: {}", response.getBody().getId()))
                 .doOnError(error -> log.error("Error restoring user: {}", error.getMessage()));
     }
 
@@ -206,8 +194,6 @@ public class UserController {
 
         return userService.deleteUserPermanently(id)
                 .then(Mono.just(ResponseEntity.noContent().build()))
-                .doOnSuccess(response ->
-                        log.debug("User permanently deleted with ID: {}", id))
                 .doOnError(error -> log.error("Error permanently deleting user: {}", error.getMessage()));
     }
 
