@@ -1,6 +1,5 @@
 package com.busconnect.userservice.model;
 
-import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -8,58 +7,47 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 
-@Entity
-@EntityListeners(AuditingEntityListener.class)
-@Table(name = "users", schema = "user_service")
-@Access(AccessType.FIELD)
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "users", schema = "user_service")
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Email(message = "{email.invalid}")
-    @NotBlank(message = "{email.required}")
-    @Column(nullable = false, unique = true, length = 254)
+    @Column("email")
     private String email;
 
-    @NotBlank(message = "{password.required}")
-    @Column(nullable = false, length = 255)
-    private String passwordHash;
-
-    @NotBlank(message = "{firstName.required}")
-    @Column(nullable = false, length = 255)
+    @Column("first_name")
     private String firstName;
 
-    @NotBlank(message = "{lastName.required}")
-    @Column(nullable = false, length = 255)
+    @Column("last_name")
     private String lastName;
 
-    @Column(length = 20)
+    @Column("phone")
     private String phone;
 
-    @NotNull(message = "{role.required}")
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column("role")
     private UserRole role;
 
     @CreatedDate
-    @Column(name = "created_at", updatable = false)
+    @Column("created_at")
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(name = "updated_at")
+    @Column("updated_at")
     private LocalDateTime updatedAt;
 
-    @Column(name = "is_active", nullable = false)
+    @Column("is_active")
     private boolean isActive = true;
 
 }

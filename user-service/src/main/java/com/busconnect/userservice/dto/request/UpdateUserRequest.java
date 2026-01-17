@@ -10,8 +10,6 @@ public class UpdateUserRequest {
     @Email(message = "{email.invalid}")
     private String email;
 
-    private String password;
-
     private String firstName;
 
     private String lastName;
