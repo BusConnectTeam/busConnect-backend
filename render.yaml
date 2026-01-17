@@ -1,24 +1,12 @@
-services:
-  # PostgreSQL Database
-  - type: pserv
-    name: busconnect-postgres
-    env: docker
+# Base de datos PostgreSQL gestionada por Render
+databases:
+  - name: busconnect-db
     plan: free
     region: frankfurt
-    dockerfilePath: ./Dockerfile.postgres
-    dockerContext: .
-    envVars:
-      - key: POSTGRES_DB
-        value: busconnect
-      - key: POSTGRES_USER
-        value: postgres
-      - key: POSTGRES_PASSWORD
-        generateValue: true
-    disk:
-      name: postgres-data
-      mountPath: /var/lib/postgresql/data
-      sizeGB: 1
+    databaseName: busconnect
+    user: postgres
 
+services:
   # Eureka Service Discovery
   - type: pserv
     name: busconnect-eureka
@@ -48,13 +36,25 @@ services:
         value: 8082
       - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
         value: http://busconnect-eureka:8761/eureka/
-      - key: SPRING_R2DBC_URL
-        value: r2dbc:postgresql://busconnect-postgres:5432/busconnect
-      - key: SPRING_R2DBC_USERNAME
-        value: postgres
-      - key: SPRING_R2DBC_PASSWORD
+      - key: DB_HOST
         fromDatabase:
-          name: busconnect-postgres
+          name: busconnect-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: busconnect-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: busconnect-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: busconnect-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: busconnect-db
           property: password
 
   # Catalog Service
@@ -72,13 +72,25 @@ services:
         value: 8083
       - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
         value: http://busconnect-eureka:8761/eureka/
-      - key: SPRING_R2DBC_URL
-        value: r2dbc:postgresql://busconnect-postgres:5432/busconnect
-      - key: SPRING_R2DBC_USERNAME
-        value: postgres
-      - key: SPRING_R2DBC_PASSWORD
+      - key: DB_HOST
         fromDatabase:
-          name: busconnect-postgres
+          name: busconnect-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: busconnect-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: busconnect-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: busconnect-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: busconnect-db
           property: password
       - key: OPENROUTESERVICE_API_KEY
         sync: false
