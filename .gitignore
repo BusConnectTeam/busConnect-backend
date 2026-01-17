@@ -40,3 +40,8 @@ target/
 
 # Maven target directory
 **/target/
+
+# IDE and Editor files
+.claude/
+.vscode/
+.DS_Store
