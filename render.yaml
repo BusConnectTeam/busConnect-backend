@@ -1,0 +1,101 @@
+services:
+  # PostgreSQL Database
+  - type: pserv
+    name: busconnect-postgres
+    env: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile.postgres
+    dockerContext: .
+    envVars:
+      - key: POSTGRES_DB
+        value: busconnect
+      - key: POSTGRES_USER
+        value: postgres
+      - key: POSTGRES_PASSWORD
+        generateValue: true
+    disk:
+      name: postgres-data
+      mountPath: /var/lib/postgresql/data
+      sizeGB: 1
+
+  # Eureka Service Discovery
+  - type: pserv
+    name: busconnect-eureka
+    env: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./eureka-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SERVER_PORT
+        value: 8761
+
+  # User Service
+  - type: pserv
+    name: busconnect-user-service
+    env: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./user-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SERVER_PORT
+        value: 8082
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: http://busconnect-eureka:8761/eureka/
+      - key: SPRING_R2DBC_URL
+        value: r2dbc:postgresql://busconnect-postgres:5432/busconnect
+      - key: SPRING_R2DBC_USERNAME
+        value: postgres
+      - key: SPRING_R2DBC_PASSWORD
+        fromDatabase:
+          name: busconnect-postgres
+          property: password
+
+  # Catalog Service
+  - type: pserv
+    name: busconnect-catalog-service
+    env: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./catalog-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SERVER_PORT
+        value: 8083
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: http://busconnect-eureka:8761/eureka/
+      - key: SPRING_R2DBC_URL
+        value: r2dbc:postgresql://busconnect-postgres:5432/busconnect
+      - key: SPRING_R2DBC_USERNAME
+        value: postgres
+      - key: SPRING_R2DBC_PASSWORD
+        fromDatabase:
+          name: busconnect-postgres
+          property: password
+      - key: OPENROUTESERVICE_API_KEY
+        sync: false
+
+  # API Gateway (Public)
+  - type: web
+    name: busconnect-api-gateway
+    env: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./api-gateway/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SERVER_PORT
+        value: 8080
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: http://busconnect-eureka:8761/eureka/
+    healthCheckPath: /actuator/health

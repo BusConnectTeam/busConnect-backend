@@ -4,6 +4,7 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.13-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2023.0.3-blue.svg)](https://spring.io/projects/spring-cloud)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+[![Deploy to Render](https://github.com/BusConnectTeam/busConnect-backend/actions/workflows/deploy-render.yml/badge.svg?branch=develop)](https://github.com/BusConnectTeam/busConnect-backend/actions/workflows/deploy-render.yml)
 [![License](https://img.shields.io/badge/License-Private-red.svg)]()
 
 Plataforma modular para la gestión y búsqueda de rutas de autobuses en Catalunya, diseñada para ofrecer una experiencia simple, segura y moderna tanto para usuarios finales como para compañías de transporte. El sistema sigue una arquitectura de microservicios, enfocándose en escalabilidad, seguridad y monitoreo centralizado.
@@ -15,7 +16,7 @@ Plataforma modular para la gestión y búsqueda de rutas de autobuses en Catalun
 ## 📘 Tabla de Contenidos
 
 - [Visión General](#-visión-general)
-- [Arquitectura](#️-arquitectura)
+- [Arquitectura](#️-arquitectura) → 📐 [**Ver Arquitectura Completa**](./ARCHITECTURE.md)
 - [Microservicios](#️-microservicios)
 - [Stack Tecnológico](#-stack-tecnológico)
 - [Inicio Rápido](#-inicio-rápido)

@@ -45,3 +45,15 @@ target/
 .claude/
 .vscode/
 .DS_Store
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# Logs
+logs/
+*.log.*
+
+# OS
+Thumbs.db
