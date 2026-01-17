@@ -24,16 +24,16 @@ import reactor.core.publisher.Mono;
 
 /**
  * Controlador REST para gestión de rutas y municipios de Catalunya.
- * 
+ *
  * Endpoints disponibles:
  * - POST /calculate: Cálculo de rutas (body JSON)
- * - GET /calculate: Cálculo de rutas (query params)
  * - GET /municipalities: Listar todos los municipios
  * - GET /municipalities/search: Buscar municipios por nombre
  * - GET /municipalities/{province}: Municipios por provincia
  * - GET /stream: Stream reactivo de múltiples rutas (LIMITADO A 20)
  * - GET /health: Health check del servicio
  * - GET /rate-limit-stats: Estadísticas de uso de API
+ * - GET /cache-stats: Estadísticas del caché
  */
 @RestController
 @RequestMapping("/api/routes")
@@ -71,31 +71,6 @@ public class RouteController {
                 .map(ResponseEntity::ok)
                 .doOnSuccess(response -> log.debug("Route calculated successfully"))  // ✅ DEBUG, no INFO
                 .doOnError(error -> log.error("Route calculation failed: {}", error.getMessage()));
-    }
-
-    /**
-     * Calcular ruta entre dos municipios (GET).
-     * Versión simplificada con query parameters.
-     */
-    @GetMapping("/calculate")
-    @Operation(summary = "Calcular ruta entre municipios (GET)", 
-               description = "Versión GET para cálculo rápido de rutas")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "Ruta calculada exitosamente"),
-        @ApiResponse(responseCode = "400", description = "Parámetros inválidos"),
-        @ApiResponse(responseCode = "429", description = "Límite de requests excedido")
-    })
-    public Mono<ResponseEntity<RouteResultResponse>> calculateRouteGet(
-            @Parameter(description = "Municipio de origen", example = "Barcelona")
-            @RequestParam String origin,
-            @Parameter(description = "Municipio de destino", example = "Sitges") 
-            @RequestParam String destination) {
-        
-        log.info("GET - Route calculation: {} -> {}", origin, destination);
-        
-        return openRouteService.calculateRoute(origin, destination)
-                .map(ResponseEntity::ok)
-                .doOnError(error -> log.error("GET route calculation failed: {}", error.getMessage()));
     }
 
     /**
@@ -234,7 +209,32 @@ public class RouteController {
                 })
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build())
-                .doOnError(error -> 
+                .doOnError(error ->
                     log.error("Error retrieving rate limit statistics: {}", error.getMessage()));
+    }
+
+    /**
+     * Estadísticas del caché de rutas.
+     * Muestra hits, misses, tamaño actual y hit rate.
+     */
+    @GetMapping("/cache-stats")
+    @Operation(
+        summary = "Estadísticas del caché de rutas",
+        description = "Muestra el rendimiento del caché: hits, misses, hit rate, etc."
+    )
+    @ApiResponse(responseCode = "200", description = "Estadísticas del caché obtenidas")
+    public Mono<ResponseEntity<OpenRouteService.CacheStats>> getCacheStats() {
+        log.debug("Requesting cache statistics");
+
+        return openRouteService.getCacheStats()
+                .doOnSuccess(stats -> {
+                    if (stats != null) {
+                        log.info("Cache Stats - Routes: size={}, hits={}, misses={}, hitRate={}% | Municipalities: size={}, hits={}, misses={}",
+                                stats.routeCacheSize(), stats.routeHitCount(), stats.routeMissCount(),
+                                String.format(Locale.US, "%.1f", stats.routeHitRatePercent()),
+                                stats.municipalityCacheSize(), stats.municipalityHitCount(), stats.municipalityMissCount());
+                    }
+                })
+                .map(ResponseEntity::ok);
     }
 }

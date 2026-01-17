@@ -29,6 +29,20 @@ spring:
         enabled: true
 
   # ============================================
+  # Flyway (Migraciones de base de datos)
+  # ============================================
+  # Flyway usa JDBC para ejecutar migraciones antes de que R2DBC esté disponible
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}
+    user: ${DB_USERNAME:busconnect_user}
+    password: ${DB_PASSWORD}
+    schemas: catalog
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: '0'
+
+  # ============================================
   # Internationalization (i18n)
   # ============================================
   messages:
@@ -37,28 +51,26 @@ spring:
     fallback-to-system-locale: false
 
   # ============================================
-  # Cache Configuration (DEPRECATED)
+  # Cache Configuration (Caffeine)
   # ============================================
-  # ✅ CORRECCIÓN 5: Cache Caffeine ya NO se usa
-  # 
-  # Anteriormente usábamos @Cacheable con Caffeine, lo cual BLOQUEABA
-  # threads en un contexto reactivo, destruyendo la performance.
-  # 
-  # AHORA usamos Mono.cache() que es completamente reactivo y no bloquea.
-  # 
-  # Si en el futuro necesitas cache más avanzado, considera:
-  # - Redis Reactive (Spring Data Redis Reactive)
-  # - Reactor Addons Cache
-  # 
-  # La siguiente configuración está comentada porque ya no se usa:
+  # Usamos Caffeine directamente (no @Cacheable) para mantener
+  # compatibilidad con programación reactiva WebFlux.
   #
-  # cache:
-  #   type: caffeine
-  #   caffeine:
-  #     spec: maximumSize=500,expireAfterWrite=1h
-  #   cache-names:
-  #     - routes
-  #     - municipalities
+  # El caché es COMPARTIDO entre todos los usuarios:
+  # - Usuario A busca "Barcelona → Girona" → Llama a API
+  # - Usuario B busca "Barcelona → Girona" → Devuelve cacheado (sin API call)
+  # - Ahorro de llamadas = Ahorro de dinero
+
+# ============================================
+# Cache Configuration
+# ============================================
+cache:
+  routes:
+    maximum-size: 1000           # Máximo número de rutas cacheadas
+    expire-after-write-hours: 1  # Tiempo de expiración en horas
+  municipalities:
+    maximum-size: 1000           # Catalunya tiene 947 municipios
+    expire-after-write-hours: 24 # Los municipios no cambian frecuentemente
 
 # ============================================
 # OpenRouteService API Configuration

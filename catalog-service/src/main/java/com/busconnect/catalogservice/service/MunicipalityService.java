@@ -4,7 +4,6 @@ import com.busconnect.catalogservice.model.Municipality;
 import com.busconnect.catalogservice.repository.MunicipalityRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -19,9 +18,8 @@ public class MunicipalityService {
     private final MunicipalityRepository municipalityRepository;
 
     /**
-     * Obtener todos los municipios activos (con cache)
+     * Obtener todos los municipios activos.
      */
-    @Cacheable("municipalities")
     public Flux<Municipality> getAllActive() {
         log.debug("Obteniendo todos los municipios activos");
         return municipalityRepository.findAllActive()
