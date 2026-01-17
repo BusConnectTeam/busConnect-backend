@@ -4,7 +4,6 @@ databases:
     plan: free
     region: frankfurt
     databaseName: busconnect
-    user: postgres
 
 services:
   # Eureka Service Discovery
