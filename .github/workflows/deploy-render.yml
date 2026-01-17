@@ -1,0 +1,45 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+      
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+      
+      - name: Deploy to Render
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ secrets.RENDER_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
+          wait-for-success: true
+      
+      - name: Deployment Status
+        if: success()
+        run: |
+          echo "✅ Deployment successful!"
+          echo "🚀 Services deployed to Render"
+      
+      - name: Deployment Failed
+        if: failure()
+        run: |
+          echo "❌ Deployment failed"
+          echo "Check the logs above for details"

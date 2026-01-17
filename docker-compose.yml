@@ -1,4 +1,40 @@
 services:
+  # Eureka Server - Service Discovery
+  eureka-service:
+    build:
+      context: .
+      dockerfile: eureka-service/Dockerfile
+    container_name: busconnect-eureka
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    networks:
+      - busconnect-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8761/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  # API Gateway - Entry point
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: busconnect-api-gateway
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-service:8761/eureka/
+    ports:
+      - "8081:8080"
+    networks:
+      - busconnect-network
+    depends_on:
+      eureka-service:
+        condition: service_healthy
+
   # PostgreSQL - Base de datos compartida
   postgres:
     image: postgres:16-alpine
@@ -34,6 +70,7 @@ services:
       DB_NAME: ${POSTGRES_DB:-busconnectdb}
       DB_USERNAME: ${POSTGRES_USER:-busconnect_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-service:8761/eureka/
     ports:
       - "8082:8082"
     networks:
@@ -41,9 +78,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      eureka-service:
+        condition: service_healthy
 
- # Catalog Service
-  catalog-service:  # ⚠️ Faltaba indentación aquí
+  # Catalog Service
+  catalog-service:
     build:
       context: .
       dockerfile: catalog-service/Dockerfile
@@ -57,6 +96,7 @@ services:
       DB_USERNAME: ${POSTGRES_USER:-busconnect_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       OPENROUTE_API_KEY: ${OPENROUTE_API_KEY}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-service:8761/eureka/
     ports:
       - "8083:8083"
     networks:
@@ -64,7 +104,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-        
+      eureka-service:
+        condition: service_healthy
+
 volumes:
   postgres-data:
     driver: local

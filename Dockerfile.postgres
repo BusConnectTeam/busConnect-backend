@@ -1,0 +1,11 @@
+FROM postgres:15-alpine
+
+# Create initialization script for schemas
+RUN mkdir -p /docker-entrypoint-initdb.d
+
+# Create schemas SQL script
+RUN echo "CREATE SCHEMA IF NOT EXISTS user_service;" > /docker-entrypoint-initdb.d/01-init-schemas.sql && \
+    echo "CREATE SCHEMA IF NOT EXISTS catalog;" >> /docker-entrypoint-initdb.d/01-init-schemas.sql && \
+    echo "CREATE SCHEMA IF NOT EXISTS auth;" >> /docker-entrypoint-initdb.d/01-init-schemas.sql
+
+EXPOSE 5432
