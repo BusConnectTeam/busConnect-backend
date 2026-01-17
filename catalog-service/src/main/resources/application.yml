@@ -1,0 +1,206 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: catalog-service
+
+  # ============================================
+  # R2DBC Configuration (Reactive PostgreSQL)
+  # ============================================
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}
+    username: ${DB_USERNAME:busconnect_user}
+    password: ${DB_PASSWORD}
+    properties:
+      schema: catalog  
+    pool:
+      initial-size: 10
+      max-size: 20
+      max-idle-time: 30m
+      validation-query: SELECT 1
+
+  # ============================================
+  # Spring Data R2DBC
+  # ============================================
+  data:
+    r2dbc:
+      repositories:
+        enabled: true
+
+  # ============================================
+  # Flyway (Migraciones de base de datos)
+  # ============================================
+  # Flyway usa JDBC para ejecutar migraciones antes de que R2DBC esté disponible
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}
+    user: ${DB_USERNAME:busconnect_user}
+    password: ${DB_PASSWORD}
+    schemas: catalog
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: '0'
+
+  # ============================================
+  # Internationalization (i18n)
+  # ============================================
+  messages:
+    basename: messages
+    encoding: UTF-8
+    fallback-to-system-locale: false
+
+  # ============================================
+  # Cache Configuration (Caffeine)
+  # ============================================
+  # Usamos Caffeine directamente (no @Cacheable) para mantener
+  # compatibilidad con programación reactiva WebFlux.
+  #
+  # El caché es COMPARTIDO entre todos los usuarios:
+  # - Usuario A busca "Barcelona → Girona" → Llama a API
+  # - Usuario B busca "Barcelona → Girona" → Devuelve cacheado (sin API call)
+  # - Ahorro de llamadas = Ahorro de dinero
+
+# ============================================
+# Cache Configuration
+# ============================================
+cache:
+  routes:
+    maximum-size: 1000           # Máximo número de rutas cacheadas
+    expire-after-write-hours: 1  # Tiempo de expiración en horas
+  municipalities:
+    maximum-size: 1000           # Catalunya tiene 947 municipios
+    expire-after-write-hours: 24 # Los municipios no cambian frecuentemente
+
+# ============================================
+# OpenRouteService API Configuration
+# ============================================
+openroute:
+  api:
+    key: ${OPENROUTE_API_KEY}
+    base-url: https://api.openrouteservice.org
+    timeout: 20s  # ✅ Aumentado de 10s a 20s para rutas complejas
+    rate-limit:
+      max-requests-per-day: 2000
+
+# ============================================
+# SpringDoc OpenAPI (Swagger)
+# ============================================
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  default-produces-media-type: application/json
+  default-consumes-media-type: application/json
+
+# ============================================
+# Logging Configuration
+# ============================================
+# ✅ CORRECCIÓN 7: Logging apropiado por nivel
+#
+# Niveles de log:
+# - TRACE: Detalles extremos (cada municipio encontrado)
+# - DEBUG: Información útil para desarrollo (queries, params)
+# - INFO:  Eventos importantes (requests, errores de negocio)
+# - WARN:  Problemas potenciales (rate limit, validación)
+# - ERROR: Errores técnicos que requieren atención
+#
+logging:
+  level:
+    # Nivel general de la aplicación
+    "[com.busconnect.catalogservice]": INFO
+    
+    # Queries R2DBC (útil en desarrollo, comentar en producción)
+    "[io.r2dbc.postgresql.QUERY]": DEBUG
+    "[io.r2dbc.postgresql.PARAM]": DEBUG
+    
+    # Framework R2DBC
+    "[org.springframework.r2dbc]": DEBUG
+    
+    # WebFlux (para debugging de requests reactivas)
+    "[org.springframework.web.reactive]": INFO
+    
+    # Cache (si se vuelve a habilitar)
+    # "[org.springframework.cache]": DEBUG
+
+  # Patrón de logging
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %logger{36} - %msg%n"
+    
+  # Archivo de logs (opcional, para producción)
+  # file:
+  #   name: logs/catalog-service.log
+  #   max-size: 10MB
+  #   max-history: 30
+
+# ============================================
+# Actuator (Health checks, metrics)
+# ============================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# ============================================
+# Profile-specific Configuration
+# ============================================
+---
+# Configuración para desarrollo local
+spring:
+  config:
+    activate:
+      on-profile: dev
+      
+logging:
+  level:
+    "[com.busconnect.catalogservice]": DEBUG  
+    "[io.r2dbc.postgresql.QUERY]": DEBUG
+    "[io.r2dbc.postgresql.PARAM]": DEBUG
+
+---
+# Configuración para Docker
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+  r2dbc:
+    url: r2dbc:postgresql://postgres:5432/${DB_NAME:busconnectdb}
+    
+logging:
+  level:
+    "[com.busconnect.catalogservice]": INFO  
+
+---
+# Configuración para producción
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  r2dbc:
+    pool:
+      initial-size: 20
+      max-size: 50  
+
+openroute:
+  api:
+    timeout: 30s  
+
+logging:
+  level:
+    "[com.busconnect.catalogservice]": INFO
+    "[io.r2dbc.postgresql.QUERY]": WARN  
+    "[io.r2dbc.postgresql.PARAM]": WARN
+    
+  file:
+    name: /var/log/busconnect/catalog-service.log
+    max-size: 50MB
+    max-history: 90
