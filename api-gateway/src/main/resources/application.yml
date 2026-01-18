@@ -17,9 +17,8 @@ spring:
         - id: catalog-service
           uri: lb://CATALOG-SERVICE
           predicates:
-            - Path=/api/catalog/**
+            - Path=/api/routes/**
           filters:
-            - RewritePath=/api/catalog/(?<segment>.*), /${segment}
             - name: CircuitBreaker
               args:
                 name: catalogServiceCircuitBreaker
@@ -31,7 +30,6 @@ spring:
           predicates:
             - Path=/api/users/**
           filters:
-            - RewritePath=/api/users/(?<segment>.*), /${segment}
             - name: CircuitBreaker
               args:
                 name: userServiceCircuitBreaker
