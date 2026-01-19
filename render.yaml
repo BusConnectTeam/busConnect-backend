@@ -12,6 +12,7 @@ services:
     env: docker
     plan: free
     region: frankfurt
+    autoDeploy: true
     dockerfilePath: ./eureka-service/Dockerfile
     dockerContext: .
     envVars:
@@ -27,6 +28,7 @@ services:
     env: docker
     plan: free
     region: frankfurt
+    autoDeploy: true
     dockerfilePath: ./user-service/Dockerfile
     dockerContext: .
     envVars:
@@ -64,6 +66,7 @@ services:
     env: docker
     plan: free
     region: frankfurt
+    autoDeploy: true
     dockerfilePath: ./catalog-service/Dockerfile
     dockerContext: .
     envVars:
@@ -93,7 +96,7 @@ services:
         fromDatabase:
           name: busconnect-db
           property: password
-      - key: OPENROUTESERVICE_API_KEY
+      - key: OPENROUTE_API_KEY
         sync: false
     healthCheckPath: /actuator/health
 
@@ -103,6 +106,7 @@ services:
     env: docker
     plan: free
     region: frankfurt
+    autoDeploy: true
     dockerfilePath: ./api-gateway/Dockerfile
     dockerContext: .
     envVars:
