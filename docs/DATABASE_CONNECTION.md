@@ -131,10 +131,13 @@ BusConnect usa schemas separados para cada microservicio:
 ```
 busconnect_itsf (database)
 ├── catalog (schema)
-│   ├── municipalities (tabla)
+│   ├── municipalities (tabla - 947 municipios de Catalunya)
+│   ├── bus_companies (tabla - 8 empresas de autobuses)
+│   ├── bus_types (tabla - 24 tipos de autobuses)
+│   ├── drivers (tabla - 32 conductores)
 │   └── flyway_schema_history (tabla)
 ├── user_service (schema)
-│   ├── users (tabla)
+│   ├── users (tabla - usuarios de la aplicacion)
 │   └── flyway_schema_history (tabla)
 └── public (schema por defecto)
 ```
@@ -194,6 +197,96 @@ ls catalog-service/src/main/resources/db/migration/
 # Ejecutar el SQL manualmente via psql
 psql "TU_EXTERNAL_URL" -f user-service/src/main/resources/db/migration/V1__create_users_schema_and_seed_data.sql
 ```
+
+---
+
+## Ejecutar Migraciones Manualmente en Render
+
+Cuando Flyway no ejecuta las migraciones automaticamente (por ejemplo, al crear una nueva base de datos o agregar nuevas tablas), puedes ejecutarlas manualmente.
+
+### Paso 1: Ubicar los archivos de migracion
+
+Los archivos SQL de migracion estan en:
+
+```
+catalog-service/src/main/resources/db/migration/
+├── V1__create_schema_and_municipalities.sql  (schema catalog + municipios)
+└── V2__create_companies_buses_drivers.sql    (empresas, buses, conductores)
+
+user-service/src/main/resources/db/migration/
+└── V1__create_users_schema_and_seed_data.sql (schema user_service + usuarios)
+```
+
+### Paso 2: Conectarte a la base de datos
+
+```bash
+psql "TU_EXTERNAL_DATABASE_URL"
+```
+
+### Paso 3: Ejecutar las migraciones
+
+**Opcion A: Ejecutar archivo completo desde terminal (sin conectarte primero)**
+
+```bash
+# Migracion de catalog-service (municipios)
+psql "TU_EXTERNAL_URL" -f catalog-service/src/main/resources/db/migration/V1__create_schema_and_municipalities.sql
+
+# Migracion de catalog-service (empresas, buses, conductores)
+psql "TU_EXTERNAL_URL" -f catalog-service/src/main/resources/db/migration/V2__create_companies_buses_drivers.sql
+
+# Migracion de user-service
+psql "TU_EXTERNAL_URL" -f user-service/src/main/resources/db/migration/V1__create_users_schema_and_seed_data.sql
+```
+
+**Opcion B: Copiar y pegar SQL estando conectado**
+
+1. Conectate con `psql "TU_EXTERNAL_URL"`
+2. Abre el archivo `.sql` en tu editor
+3. Copia todo el contenido
+4. Pega en la terminal de psql
+5. Presiona Enter
+
+### Paso 4: Verificar que se ejecuto correctamente
+
+```sql
+-- Ver todos los schemas creados
+\dn
+
+-- Verificar tablas en catalog
+\dt catalog.*
+
+-- Verificar tablas en user_service
+\dt user_service.*
+
+-- Contar registros para confirmar datos
+SELECT COUNT(*) as empresas FROM catalog.bus_companies;
+SELECT COUNT(*) as tipos_bus FROM catalog.bus_types;
+SELECT COUNT(*) as conductores FROM catalog.drivers;
+SELECT COUNT(*) as municipios FROM catalog.municipalities;
+SELECT COUNT(*) as usuarios FROM user_service.users;
+```
+
+### Orden de ejecucion importante
+
+Si ejecutas desde cero, sigue este orden:
+
+1. `V1__create_schema_and_municipalities.sql` (catalog)
+2. `V2__create_companies_buses_drivers.sql` (catalog)
+3. `V1__create_users_schema_and_seed_data.sql` (user_service)
+
+### Errores comunes al ejecutar migraciones
+
+**Error: "relation already exists"**
+- La tabla ya fue creada. Puedes ignorar si usas `IF NOT EXISTS`
+
+**Error: "schema does not exist"**
+- Ejecuta primero la migracion V1 que crea el schema
+
+**Error: "duplicate key value violates unique constraint"**
+- Los datos ya existen. Si usas `ON CONFLICT DO NOTHING`, se ignoran duplicados
+
+**Error: "permission denied for schema"**
+- El usuario no tiene permisos. En Render, el usuario generado tiene permisos completos
 
 ---
 

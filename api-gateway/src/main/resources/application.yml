@@ -14,10 +14,21 @@ spring:
       # Rutas a los microservicios
       routes:
         # Catalog Service - Rutas de catálogo (reactivo)
-        - id: catalog-service
+        - id: catalog-service-routes
           uri: lb://CATALOG-SERVICE
           predicates:
             - Path=/api/routes/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: catalogServiceCircuitBreaker
+                fallbackUri: forward:/fallback/catalog
+
+        # Catalog Service - Empresas de autobuses
+        - id: catalog-service-companies
+          uri: lb://CATALOG-SERVICE
+          predicates:
+            - Path=/api/companies/**
           filters:
             - name: CircuitBreaker
               args:
