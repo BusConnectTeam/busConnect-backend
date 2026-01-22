@@ -24,7 +24,29 @@ spring:
                 name: catalogServiceCircuitBreaker
                 fallbackUri: forward:/fallback/catalog
 
-        # Catalog Service - Empresas de autobuses
+        # Catalog Service - Buses (rutas específicas primero)
+        - id: catalog-service-buses
+          uri: lb://CATALOG-SERVICE
+          predicates:
+            - Path=/api/companies/buses/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: catalogServiceCircuitBreaker
+                fallbackUri: forward:/fallback/catalog
+
+        # Catalog Service - Drivers (rutas específicas primero)
+        - id: catalog-service-drivers
+          uri: lb://CATALOG-SERVICE
+          predicates:
+            - Path=/api/companies/drivers/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: catalogServiceCircuitBreaker
+                fallbackUri: forward:/fallback/catalog
+
+        # Catalog Service - Empresas de autobuses (ruta general al final)
         - id: catalog-service-companies
           uri: lb://CATALOG-SERVICE
           predicates:
@@ -62,11 +84,14 @@ spring:
               - DELETE
               - PATCH
               - OPTIONS
+              - HEAD
             allowedHeaders:
               - "*"
             exposedHeaders:
               - Authorization
               - Content-Type
+              - X-Correlation-ID
+              - Location
             allowCredentials: true
             maxAge: 3600
 

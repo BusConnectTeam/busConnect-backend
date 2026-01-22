@@ -157,8 +157,8 @@ curl http://localhost:8083/actuator/health  # Catalog Service
 | Nombre | Rol | GitHub |
 |--------|-----|--------|
 | **Ainoha Barcia** | Backend Developer | [@AinohaBarcia](https://github.com/AinohaBarcia) |
-| **Gabriela Bettiol** | Backend Developer | [@GabyB73](https://github.com/GabyB73) |
-| **Irina Ichim** | Backend Developer | [@IrinaIchim](https://github.com/IrinaIchim) |
+| **Gabriela Bustamante** | Backend Developer & DevOps / AI Integration | [@GabyB73](https://github.com/GabyB73) |
+| **Irina Ichim** | Full Stack Developer & DevOps / AI Integration | [@IrinaIchim](https://github.com/IrinaIchim) |
 
 ### Agradecimientos Especiales
 
