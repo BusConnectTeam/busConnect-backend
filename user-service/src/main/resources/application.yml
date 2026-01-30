@@ -5,6 +5,20 @@ spring:
   application:
     name: user-service
 
+  # ✅ Configuración JDBC para Flyway (migraciones)
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}
+    username: ${DB_USERNAME:busconnect_user}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  # ✅ Flyway para migraciones automáticas
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    schemas: user_service
+
   # ✅ Configuración R2DBC (Reactiva)
   r2dbc:
     url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:busconnectdb}
@@ -17,11 +31,6 @@ spring:
       max-size: 20
       max-idle-time: 30m
       validation-query: SELECT 1
-
-  messages:
-    basename: messages
-    encoding: UTF-8
-    fallback-to-system-locale: false
 
   profiles:
     active: docker
@@ -52,3 +61,30 @@ logging:
     '[io.r2dbc.postgresql.QUERY]': DEBUG
     '[io.r2dbc.postgresql.PARAM]': DEBUG
     '[org.springframework.r2dbc]': DEBUG
+
+# Eureka Client Configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+    registry-fetch-interval-seconds: 30
+    initial-instance-info-replication-interval-seconds: 40
+    instance-info-replication-interval-seconds: 30
+    eureka-service-url-poll-interval-seconds: 60
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${random.value}
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

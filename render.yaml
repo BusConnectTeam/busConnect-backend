@@ -1,0 +1,119 @@
+# Base de datos PostgreSQL gestionada por Render
+databases:
+  - name: busconnect-db
+    plan: free
+    region: frankfurt
+    databaseName: busconnect
+
+services:
+  # Eureka Service Discovery
+  - type: web
+    name: busconnect-eureka
+    env: docker
+    plan: free
+    region: frankfurt
+    autoDeploy: true
+    dockerfilePath: ./eureka-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SERVER_PORT
+        value: 8761
+    healthCheckPath: /actuator/health
+
+  # User Service
+  - type: web
+    name: busconnect-user-service
+    env: docker
+    plan: free
+    region: frankfurt
+    autoDeploy: true
+    dockerfilePath: ./user-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SERVER_PORT
+        value: 8082
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: https://busconnect-eureka.onrender.com/eureka/
+      - key: DB_HOST
+        fromDatabase:
+          name: busconnect-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: busconnect-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: busconnect-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: busconnect-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: busconnect-db
+          property: password
+    healthCheckPath: /actuator/health
+
+  # Catalog Service
+  - type: web
+    name: busconnect-catalog-service
+    env: docker
+    plan: free
+    region: frankfurt
+    autoDeploy: true
+    dockerfilePath: ./catalog-service/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SERVER_PORT
+        value: 8083
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: https://busconnect-eureka.onrender.com/eureka/
+      - key: DB_HOST
+        fromDatabase:
+          name: busconnect-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: busconnect-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: busconnect-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: busconnect-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: busconnect-db
+          property: password
+      - key: OPENROUTE_API_KEY
+        sync: false
+    healthCheckPath: /actuator/health
+
+  # API Gateway (Public)
+  - type: web
+    name: busconnect-api-gateway
+    env: docker
+    plan: free
+    region: frankfurt
+    autoDeploy: true
+    dockerfilePath: ./api-gateway/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: SERVER_PORT
+        value: 8080
+      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
+        value: https://busconnect-eureka.onrender.com/eureka/
+    healthCheckPath: /actuator/health

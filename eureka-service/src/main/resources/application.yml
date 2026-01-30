@@ -11,3 +11,14 @@ eureka:
     fetch-registry: false
   server:
     enable-self-preservation: false
+    eviction-interval-timer-in-ms: 5000
+
+# Actuator endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

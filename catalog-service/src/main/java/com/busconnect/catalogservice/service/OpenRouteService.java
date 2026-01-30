@@ -1,192 +1,354 @@
 package com.busconnect.catalogservice.service;
 
-import com.busconnect.catalogservice.config.OpenRouteProperties;
-import com.busconnect.catalogservice.dto.response.RouteResultResponse;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+
+import com.busconnect.catalogservice.config.OpenRouteProperties;
+import com.busconnect.catalogservice.dto.response.RouteResultResponse;
+import com.busconnect.catalogservice.exception.MunicipalityNotFoundException;
+import com.busconnect.catalogservice.exception.RateLimitExceededException;
+import com.busconnect.catalogservice.model.Municipality;
+import com.busconnect.catalogservice.repository.MunicipalityRepository;
+import com.github.benmanes.caffeine.cache.Cache;
+
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
-import java.math.BigDecimal;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
+/**
+ * Servicio para cálculo de rutas usando OpenRouteService API.
+ *
+ * Características:
+ * - Rate limiting thread-safe con ConcurrentLinkedQueue
+ * - Caché compartido con Caffeine para rutas y municipios
+ * - Coordenadas obtenidas de base de datos (947 municipios de Catalunya)
+ * - Retry strategy con backoff exponencial
+ * - Validación completa de configuración
+ */
 @Service
 @Slf4j
 public class OpenRouteService {
 
     private final WebClient webClient;
     private final OpenRouteProperties properties;
-    private final Map<String, LocalDateTime> requestLog = new ConcurrentHashMap<>();
-    
-    // Coordenadas de municipios principales de Catalunya (fallback data)
-    private final Map<String, double[]> CATALUNYA_COORDINATES = Map.of(
-        "barcelona", new double[]{41.390205, 2.154007},
-        "girona", new double[]{41.979244, 2.821426},
-        "lleida", new double[]{41.617950, 0.620348},
-        "tarragona", new double[]{41.118645, 1.244784},
-        "sitges", new double[]{41.235216, 1.811829},
-        "figueres", new double[]{42.266390, 2.961000},
-        "vic", new double[]{41.930000, 2.253056},
-        "manresa", new double[]{41.721389, 1.824167}
-    );
+    private final Cache<String, RouteResultResponse> routeCache;
+    private final Cache<String, Municipality> municipalityCache;
+    private final MunicipalityRepository municipalityRepository;
 
-    // Distancias fallback entre ciudades principales (km)
-    private final Map<String, BigDecimal> FALLBACK_DISTANCES = Map.of(
-        "barcelona-sitges", new BigDecimal("42.3"),
-        "sitges-barcelona", new BigDecimal("42.3"),
-        "barcelona-girona", new BigDecimal("103.5"),
-        "girona-barcelona", new BigDecimal("103.5"),
-        "barcelona-lleida", new BigDecimal("162.8"),
-        "lleida-barcelona", new BigDecimal("162.8"),
-        "barcelona-tarragona", new BigDecimal("98.7"),
-        "tarragona-barcelona", new BigDecimal("98.7")
-    );
+    // Rate limiting thread-safe y reactivo
+    private final ConcurrentLinkedQueue<LocalDateTime> requestTimestamps = new ConcurrentLinkedQueue<>();
+    private final AtomicInteger totalRequestCount = new AtomicInteger(0);
 
-    // Duraciones fallback (minutos)
-    private final Map<String, Integer> FALLBACK_DURATIONS = Map.of(
-        "barcelona-sitges", 38,
-        "sitges-barcelona", 38,
-        "barcelona-girona", 90,
-        "girona-barcelona", 90,
-        "barcelona-lleida", 120,
-        "lleida-barcelona", 120,
-        "barcelona-tarragona", 85,
-        "tarragona-barcelona", 85
-    );
+    /**
+     * Constructor con validación completa de configuración.
+     * Falla rápido si faltan valores obligatorios.
+     */
+    public OpenRouteService(OpenRouteProperties properties,
+                            Cache<String, RouteResultResponse> routeCache,
+                            Cache<String, Municipality> municipalityCache,
+                            MunicipalityRepository municipalityRepository) {
+        // Validar que properties no sea null
+        if (properties == null) {
+            throw new IllegalArgumentException("OpenRouteProperties cannot be null");
+        }
 
-    public OpenRouteService(OpenRouteProperties properties) {
+        // Validar configuración obligatoria
+        String baseUrl = properties.getBaseUrl();
+        if (baseUrl == null || baseUrl.isBlank()) {
+            throw new IllegalArgumentException("OpenRouteService base URL cannot be null or empty");
+        }
+
+        String apiKey = properties.getKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalArgumentException("OpenRouteService API key cannot be null or empty");
+        }
+
+        // Asignar después de validar
         this.properties = properties;
+        this.routeCache = routeCache;
+        this.municipalityCache = municipalityCache;
+        this.municipalityRepository = municipalityRepository;
         this.webClient = WebClient.builder()
-                .baseUrl(properties.getBaseUrl())
+                .baseUrl(baseUrl)
                 .build();
+
+        log.info("OpenRouteService initialized successfully");
+        log.info("Base URL: {}", baseUrl);
+        log.info("Rate limit: {}/day", properties.getRateLimit().getMaxRequestsPerDay());
+        log.info("Timeout: {}s", properties.getTimeout().getSeconds());
+        log.info("Cache enabled: shared Caffeine cache for routes and municipalities");
     }
 
     /**
-     * Calcular ruta entre dos municipios (con cache)
+     * Calcular ruta entre dos municipios.
+     *
+     * Usa caché compartido Caffeine entre todos los usuarios:
+     * - Si la ruta ya está cacheada, se devuelve inmediatamente (sin llamar a API)
+     * - Si no está cacheada, se llama a OpenRouteService API y se guarda en caché
+     * - El caché expira según configuración (default: 1 hora)
+     *
+     * Esto ahorra dinero al reducir llamadas a la API externa.
+     *
+     * @param origin      Municipio de origen
+     * @param destination Municipio de destino
+     * @return Mono con resultado de la ruta (distancia, duración, source)
      */
-    @Cacheable(value = "routes", key = "#origin + '-' + #destination")
     public Mono<RouteResultResponse> calculateRoute(String origin, String destination) {
-        log.info("Calculando ruta: {} -> {}", origin, destination);
-        
+        String cacheKey = buildCacheKey(origin, destination);
+
+        // Verificar caché primero (sin bloquear)
+        RouteResultResponse cached = routeCache.getIfPresent(cacheKey);
+        if (cached != null) {
+            log.debug("Cache HIT para ruta: {} -> {}", origin, destination);
+            return Mono.just(cached);
+        }
+
+        log.info("Cache MISS - Calculando ruta: {} -> {}", origin, destination);
+
+        // Llamar a API y guardar en caché
         return checkRateLimit()
                 .then(getCoordinates(origin, destination))
                 .flatMap(coords -> callOpenRouteServiceAPI(coords[0], coords[1], coords[2], coords[3]))
                 .map(response -> new RouteResultResponse(
-                    origin, destination, 
-                    response.distanceKm, response.durationMinutes, "openroute"))
-                .doOnSuccess(result -> log.info("Ruta calculada exitosamente: {} km, {} min", 
-                    result.getDistanceKm(), result.getDurationMinutes()))
+                        origin, destination,
+                        response.distanceKm, response.durationMinutes, "openroute"))
+                .doOnSuccess(result -> {
+                    routeCache.put(cacheKey, result);
+                    log.debug("Ruta cacheada: {} -> {} ({} km, {} min)",
+                            origin, destination, result.getDistanceKm(), result.getDurationMinutes());
+                })
                 .onErrorResume(error -> {
                     log.warn("Error calculando ruta con OpenRouteService: {}", error.getMessage());
-                    return getFallbackRoute(origin, destination);
+                    return Mono.just(new RouteResultResponse(origin, destination,
+                            "Error calculando ruta: " + error.getMessage()));
                 });
     }
 
     /**
-     * Verificar límite de rate limiting
+     * Construir clave de caché normalizada.
+     */
+    private String buildCacheKey(String origin, String destination) {
+        return origin.toLowerCase().trim() + "-" + destination.toLowerCase().trim();
+    }
+
+    /**
+     * Verificar límite de rate limiting de forma thread-safe y reactiva.
+     *
+     * Implementación thread-safe usando ConcurrentLinkedQueue:
+     * - Registra timestamp de cada request
+     * - Limpia automáticamente requests > 24h
+     * - Cuenta requests reales (no threads)
      */
     private Mono<Void> checkRateLimit() {
-        return Mono.fromCallable(() -> {
-            long todayRequests = requestLog.values().stream()
-                .filter(timestamp -> timestamp.isAfter(LocalDateTime.now().minusDays(1)))
-                .count();
-            
-            if (todayRequests >= properties.getRateLimit().getMaxRequestsPerDay()) {
-                throw new RuntimeException("Daily API limit exceeded");
+        return Mono.defer(() -> {
+            // Limpiar timestamps antiguos (más de 24 horas)
+            LocalDateTime cutoff = LocalDateTime.now().minusDays(1);
+            requestTimestamps.removeIf(timestamp -> timestamp.isBefore(cutoff));
+
+            // Verificar límite actual
+            int currentCount = requestTimestamps.size();
+            int maxRequests = properties.getRateLimit().getMaxRequestsPerDay();
+
+            if (currentCount >= maxRequests) {
+                log.warn("Rate limit exceeded: {}/{} requests in last 24h", currentCount, maxRequests);
+                return Mono.error(new RateLimitExceededException(
+                        String.format("Daily API limit exceeded. Current: %d/%d requests in last 24 hours",
+                                currentCount, maxRequests)));
             }
-            
-            requestLog.put(Thread.currentThread().getName(), LocalDateTime.now());
-            return null;
+
+            // Registrar este request (timestamp, no thread name)
+            requestTimestamps.offer(LocalDateTime.now());
+            totalRequestCount.incrementAndGet();
+
+            log.debug("Rate limit check passed: {}/{} requests in last 24h",
+                    currentCount + 1, maxRequests);
+
+            return Mono.empty();
         });
     }
 
     /**
-     * Obtener coordenadas de los municipios
+     * Obtener estadísticas del rate limiting en tiempo real.
+     *
+     * @return Mono con estadísticas actuales (requests 24h, límite, restantes, total, uso%)
+     */
+    public Mono<RateLimitStats> getRateLimitStats() {
+        return Mono.fromCallable(() -> {
+            // Limpiar timestamps antiguos antes de contar
+            LocalDateTime cutoff = LocalDateTime.now().minusDays(1);
+            requestTimestamps.removeIf(timestamp -> timestamp.isBefore(cutoff));
+
+            int requestsLast24h = requestTimestamps.size();
+            int maxPerDay = properties.getRateLimit().getMaxRequestsPerDay();
+            int remaining = Math.max(0, maxPerDay - requestsLast24h);
+            double usagePercent = (requestsLast24h * 100.0) / maxPerDay;
+
+            return new RateLimitStats(
+                    requestsLast24h,
+                    maxPerDay,
+                    remaining,
+                    totalRequestCount.get(),
+                    usagePercent);
+        });
+    }
+
+    /**
+     * Obtener coordenadas de los municipios desde la base de datos.
+     *
+     * Usa caché Caffeine para evitar consultas repetidas a la BD.
+     * Los municipios se cachean por 24 horas (no cambian frecuentemente).
+     *
+     * @param origin      Municipio de origen
+     * @param destination Municipio de destino
+     * @return Mono con array [lat_origen, lon_origen, lat_destino, lon_destino]
      */
     private Mono<double[]> getCoordinates(String origin, String destination) {
-        return Mono.fromCallable(() -> {
-            double[] originCoords = CATALUNYA_COORDINATES.get(origin.toLowerCase());
-            double[] destCoords = CATALUNYA_COORDINATES.get(destination.toLowerCase());
-            
-            if (originCoords == null || destCoords == null) {
-                throw new RuntimeException("Municipality not found in Catalunya: " + 
-                    (originCoords == null ? origin : destination));
-            }
-            
-            return new double[]{originCoords[0], originCoords[1], destCoords[0], destCoords[1]};
+        return Mono.zip(
+                getMunicipalityWithCache(origin),
+                getMunicipalityWithCache(destination)
+        ).map(tuple -> {
+            Municipality originMunicipality = tuple.getT1();
+            Municipality destMunicipality = tuple.getT2();
+
+            return new double[]{
+                    originMunicipality.getLatitude().doubleValue(),
+                    originMunicipality.getLongitude().doubleValue(),
+                    destMunicipality.getLatitude().doubleValue(),
+                    destMunicipality.getLongitude().doubleValue()
+            };
         });
     }
 
     /**
-     * Llamada real a OpenRouteService API
+     * Obtener municipio con caché.
+     *
+     * Primero busca en caché Caffeine, si no existe consulta BD y lo cachea.
      */
-    private Mono<OpenRouteResponse> callOpenRouteServiceAPI(double originLat, double originLon, 
-                                                           double destLat, double destLon) {
+    private Mono<Municipality> getMunicipalityWithCache(String name) {
+        String normalizedName = name.toLowerCase().trim();
+
+        // Verificar caché primero
+        Municipality cached = municipalityCache.getIfPresent(normalizedName);
+        if (cached != null) {
+            log.debug("Municipality cache HIT: {}", name);
+            return Mono.just(cached);
+        }
+
+        log.debug("Municipality cache MISS: {}", name);
+
+        // Consultar BD y cachear
+        return municipalityRepository.findByNameIgnoreCase(name)
+                .switchIfEmpty(Mono.error(new MunicipalityNotFoundException(
+                        "Municipio no encontrado en Catalunya: " + name)))
+                .doOnSuccess(municipality -> {
+                    if (municipality != null) {
+                        municipalityCache.put(normalizedName, municipality);
+                        log.debug("Municipality cached: {} ({}, {})",
+                                municipality.getName(),
+                                municipality.getLatitude(),
+                                municipality.getLongitude());
+                    }
+                });
+    }
+
+    /**
+     * Llamada real a OpenRouteService API con retry strategy mejorada.
+     *
+     * Características:
+     * - 3 reintentos con backoff exponencial (2s, 4s, 8s)
+     * - Solo reintenta errores 5xx del servidor
+     * - Timeout configurable (default 20s)
+     * - Manejo específico de error 429 (rate limit)
+     */
+    private Mono<OpenRouteResponse> callOpenRouteServiceAPI(double originLat, double originLon,
+                                                            double destLat, double destLon) {
+
         String url = String.format("/v2/directions/driving-car?api_key=%s&start=%f,%f&end=%f,%f",
                 properties.getKey(), originLon, originLat, destLon, destLat);
-        
+
         return webClient.get()
                 .uri(url)
                 .retrieve()
                 .bodyToMono(Map.class)
                 .map(this::parseOpenRouteResponse)
-                .retryWhen(Retry.backoff(2, Duration.ofSeconds(1)))
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(2))
+                        .maxBackoff(Duration.ofSeconds(10))
+                        .filter(throwable -> {
+                            // Solo reintentar en errores 5xx del servidor
+                            if (throwable instanceof WebClientResponseException) {
+                                WebClientResponseException ex = (WebClientResponseException) throwable;
+                                return ex.getStatusCode().is5xxServerError();
+                            }
+                            return false;
+                        })
+                        .doBeforeRetry(retrySignal ->
+                                log.warn("Retrying OpenRouteService call, attempt: {}",
+                                        retrySignal.totalRetries() + 1)))
                 .timeout(properties.getTimeout())
                 .onErrorMap(WebClientResponseException.class, ex -> {
                     if (ex.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
-                        return new RuntimeException("Rate limit exceeded");
+                        return new RateLimitExceededException(
+                                "OpenRouteService rate limit exceeded (429)");
                     }
-                    return new RuntimeException("OpenRouteService API error: " + ex.getMessage());
+                    return new RuntimeException(
+                            "OpenRouteService API error: " + ex.getStatusCode() + " - " + ex.getMessage());
                 });
     }
 
     /**
-     * Parsear respuesta de OpenRouteService
+     * Parsear respuesta de OpenRouteService API.
+     *
+     * Extrae distancia (km) y duración (minutos) de la respuesta JSON.
+     * Usa RoundingMode moderno (no deprecated ROUND_HALF_UP).
      */
     private OpenRouteResponse parseOpenRouteResponse(Map<String, Object> response) {
         try {
-            Map<String, Object> features = (Map<String, Object>) ((java.util.List<?>) response.get("features")).get(0);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> features = (Map<String, Object>)
+                    ((java.util.List<?>) response.get("features")).get(0);
+
+            @SuppressWarnings("unchecked")
             Map<String, Object> properties = (Map<String, Object>) features.get("properties");
-            Map<String, Object> segments = (Map<String, Object>) ((java.util.List<?>) properties.get("segments")).get(0);
-            
-            double distance = ((Number) segments.get("distance")).doubleValue() / 1000.0;
-            double duration = ((Number) segments.get("duration")).doubleValue() / 60.0;
-            
-            return new OpenRouteResponse(
-                new BigDecimal(distance).setScale(2, BigDecimal.ROUND_HALF_UP),
-                (int) Math.round(duration)
-            );
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> segments = (Map<String, Object>)
+                    ((java.util.List<?>) properties.get("segments")).get(0);
+
+            double distanceMeters = ((Number) segments.get("distance")).doubleValue();
+            double durationSeconds = ((Number) segments.get("duration")).doubleValue();
+
+            // Convertir metros a kilómetros y segundos a minutos
+            double distanceKm = distanceMeters / 1000.0;
+            double durationMinutes = durationSeconds / 60.0;
+
+            // Usar RoundingMode en lugar de BigDecimal.ROUND_HALF_UP (deprecated)
+            BigDecimal distance = new BigDecimal(distanceKm)
+                    .setScale(2, RoundingMode.HALF_UP);
+            int duration = (int) Math.round(durationMinutes);
+
+            log.debug("Parsed route: {} km, {} min", distance, duration);
+
+            return new OpenRouteResponse(distance, duration);
+
         } catch (Exception e) {
-            throw new RuntimeException("Error parsing OpenRouteService response: " + e.getMessage());
+            log.error("Error parsing OpenRouteService response", e);
+            throw new RuntimeException("Error parsing OpenRouteService response: " + e.getMessage(), e);
         }
     }
 
     /**
-     * Datos fallback cuando OpenRouteService no está disponible
+     * Clase interna para respuesta de OpenRouteService API.
      */
-    private Mono<RouteResultResponse> getFallbackRoute(String origin, String destination) {
-        return Mono.fromCallable(() -> {
-            String routeKey = origin.toLowerCase() + "-" + destination.toLowerCase();
-            BigDecimal distance = FALLBACK_DISTANCES.get(routeKey);
-            Integer duration = FALLBACK_DURATIONS.get(routeKey);
-            
-            if (distance != null && duration != null) {
-                log.info("Usando datos fallback para ruta: {} -> {}", origin, destination);
-                return new RouteResultResponse(origin, destination, distance, duration, "fallback");
-            } else {
-                return new RouteResultResponse(origin, destination, 
-                    "No se encontró información para esta ruta");
-            }
-        });
-    }
-
     private static class OpenRouteResponse {
         final BigDecimal distanceKm;
         final Integer durationMinutes;
@@ -195,5 +357,78 @@ public class OpenRouteService {
             this.distanceKm = distanceKm;
             this.durationMinutes = durationMinutes;
         }
+    }
+
+    /**
+     * Obtener estadísticas del caché de rutas.
+     *
+     * @return Mono con estadísticas del caché (hits, misses, tamaño, etc.)
+     */
+    public Mono<CacheStats> getCacheStats() {
+        return Mono.fromCallable(() -> {
+            var routeStats = routeCache.stats();
+            var municipalityStats = municipalityCache.stats();
+
+            return new CacheStats(
+                    routeCache.estimatedSize(),
+                    routeStats.hitCount(),
+                    routeStats.missCount(),
+                    routeStats.hitRate() * 100,
+                    routeStats.evictionCount(),
+                    municipalityCache.estimatedSize(),
+                    municipalityStats.hitCount(),
+                    municipalityStats.missCount());
+        });
+    }
+
+    /**
+     * Invalidar caché de una ruta específica.
+     */
+    public void invalidateRoute(String origin, String destination) {
+        String cacheKey = buildCacheKey(origin, destination);
+        routeCache.invalidate(cacheKey);
+        log.info("Cache invalidado para ruta: {} -> {}", origin, destination);
+    }
+
+    /**
+     * Invalidar todo el caché de rutas.
+     */
+    public void invalidateAllRoutes() {
+        routeCache.invalidateAll();
+        log.info("Todo el caché de rutas ha sido invalidado");
+    }
+
+    /**
+     * Invalidar todo el caché de municipios.
+     */
+    public void invalidateAllMunicipalities() {
+        municipalityCache.invalidateAll();
+        log.info("Todo el caché de municipios ha sido invalidado");
+    }
+
+    /**
+     * Record para estadísticas de rate limiting.
+     * Usado por el endpoint /api/routes/rate-limit-stats
+     */
+    public record RateLimitStats(
+            int requestsLast24h,
+            int maxRequestsPerDay,
+            int remainingRequests,
+            int totalRequestsAllTime,
+            double usagePercentage) {
+    }
+
+    /**
+     * Record para estadísticas de caché (rutas + municipios).
+     */
+    public record CacheStats(
+            long routeCacheSize,
+            long routeHitCount,
+            long routeMissCount,
+            double routeHitRatePercent,
+            long routeEvictionCount,
+            long municipalityCacheSize,
+            long municipalityHitCount,
+            long municipalityMissCount) {
     }
 }

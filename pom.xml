@@ -22,9 +22,10 @@
 
     <properties>
         <java.version>21</java.version>
-        <spring-cloud.version>2024.0.0</spring-cloud.version>
+        <spring-cloud.version>2023.0.4</spring-cloud.version>
         <lombok.version>1.18.30</lombok.version>
         <springdoc.version>2.3.0</springdoc.version>
+        <flyway.version>10.10.0</flyway.version>
     </properties>
 
     <!-- Módulos del proyecto -->
@@ -33,6 +34,7 @@
         <!-- <module>auth-service</module> -->
         <module>eureka-service</module>
         <module>catalog-service</module>
+        <module>api-gateway</module>
     </modules>
 
     <!-- Gestión centralizada de dependencias -->
@@ -59,6 +61,18 @@
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                 <version>${springdoc.version}</version>
+            </dependency>
+
+            <!-- Flyway (migraciones de base de datos compartida) -->
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-core</artifactId>
+                <version>${flyway.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.flywaydb</groupId>
+                <artifactId>flyway-database-postgresql</artifactId>
+                <version>${flyway.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

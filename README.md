@@ -1,122 +1,175 @@
-🚌 BusConnect
+# 🚌 BusConnect Backend
 
-BusConnect is a modular platform for managing and searching bus routes, designed to deliver a simple, secure, and modern experience for both end users and transportation companies.
-The system follows a microservices architecture, focusing on scalability, security, and centralized monitoring.
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.13-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Spring Cloud](https://img.shields.io/badge/Spring%20Cloud-2023.0.3-blue.svg)](https://spring.io/projects/spring-cloud)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+[![Deploy](https://github.com/BusConnectTeam/busConnect-backend/actions/workflows/deploy-render.yml/badge.svg?branch=develop)](https://github.com/BusConnectTeam/busConnect-backend/actions/workflows/deploy-render.yml)
+[![License](https://img.shields.io/badge/License-Private-red.svg)]()
 
-⚠️ Note: BusConnect is a private project, not an open-source initiative.
-All rights reserved to the development team.
+Plataforma modular para gestión y búsqueda de rutas de autobuses en Catalunya. Arquitectura de microservicios reactivos con Spring Cloud, enfocada en escalabilidad y alta disponibilidad.
 
-📘 Table of Contents
+**📐 [Ver Arquitectura Completa del Sistema](./ARCHITECTURE.md)**
 
-Overview
+---
 
-Architecture
+## 📘 Contenido
 
-Microservices
+- [Características](#-características)
+- [Microservicios](#-microservicios)
+- [Stack Tecnológico](#-stack-tecnológico)
+- [Inicio Rápido](#-inicio-rápido)
+- [Roadmap](#-roadmap)
+- [Equipo](#-equipo)
 
-Authentication and Security
+---
 
-Infrastructure and Tools
+## ✨ Características
 
-User Experience
+- 🔍 **Búsqueda Inteligente** - Cálculo de rutas entre 947 municipios de Catalunya
+- 👥 **Gestión de Usuarios** - CRUD completo con soft delete y roles (ADMIN, USER, DRIVER, COMPANY)
+- 🔄 **Arquitectura Reactiva** - Spring WebFlux + R2DBC para operaciones no bloqueantes
+- 🚪 **API Gateway** - Punto de entrada único con circuit breakers y CORS
+- 📊 **Service Discovery** - Netflix Eureka para registro dinámico de servicios
+- ⚡ **Caché Inteligente** - Caffeine con TTL configurables (rutas 1h, municipios 24h)
+- 🐳 **Containerizado** - Docker Compose para desarrollo y producción
+- 📝 **Documentación Automática** - Swagger UI en cada microservicio
 
-Development Standards
+---
 
-To Be Added
+## ⚙️ Microservicios
 
-🧩 Overview
+| Servicio | Puerto | Descripción | Documentación |
+|----------|--------|-------------|---------------|
+| **🚪 API Gateway** | 8080 | Enrutamiento, Circuit Breaker, CORS | [README](./api-gateway/README.md) \| [ARCH](./api-gateway/ARCHITECTURE.md) |
+| **🔍 Catalog Service** | 8083 | 947 municipios, cálculo de rutas (OpenRouteService) | [README](./catalog-service/README.md) \| [ARCH](./catalog-service/ARCHITECTURE.md) |
+| **👤 User Service** | 8082 | CRUD usuarios, soft delete, roles | [README](./user-service/README.md) \| [ARCH](./user-service/ARCHITECTURE.md) |
+| **📡 Eureka Service** | 8761 | Service Discovery & Registry | [README](./eureka-service/README.md) \| [ARCH](./eureka-service/ARCHITECTURE.md) |
 
-BusConnect provides an intelligent way to search and manage bus routes by date, destination, passenger count, and bus type.
-It is built on a microservices ecosystem that enables flexibility and modular scalability for future expansion.
+---
 
-🏗️ Architecture
+## 🛠 Stack Tecnológico
 
-The project is based on a central repository managing multiple independent microservices, each handling a specific responsibility.
-Communication between services is managed through a Service Registry using Eureka Server.
+| Capa | Tecnología |
+|------|------------|
+| **Backend** | Java 21, Spring Boot 3.3.13, Spring Cloud 2023.0.3 |
+| **Reactive** | Spring WebFlux, Spring Data R2DBC |
+| **Gateway** | Spring Cloud Gateway, Resilience4j |
+| **Discovery** | Netflix Eureka |
+| **Database** | PostgreSQL 15+, Flyway |
+| **Cache** | Caffeine |
+| **Docs** | SpringDoc OpenAPI (Swagger) |
+| **DevOps** | Docker, Docker Compose, GitHub Actions |
+| **External APIs** | OpenRouteService |
 
-Key principles:
+---
 
-Scalable microservices architecture
+## 🚀 Inicio Rápido
 
-Dockerized environment for consistent deployment
+### Prerequisitos
 
-Optional orchestration via Kubernetes (under evaluation)
+```bash
+Java 21, Maven 3.9+, Docker & Docker Compose
+```
 
-Secure inter-service communication
+### 1. Clonar y Configurar
 
-⚙️ Microservices
-Service	Description
-User Service	Manages user accounts (registration, updates, deletion).
-Routes Service	Handles bus routes, trips, and external API integrations.
-Auth Service	Manages authentication and communication between services.
-Logging / Eureka Service	Provides logging, monitoring, and service discovery.
-Search Service (Landing Page)	Allows users to search by date, route, passengers, and bus type.
-🔐 Authentication and Security
+```bash
+git clone https://github.com/BusConnectTeam/busConnect-backend.git
+cd busConnect-backend
+cp .env.example .env
+```
 
-A secure authentication system will be implemented (evaluating Magical Link as an option).
+Editar `.env` con tus credenciales:
+```env
+DB_PASSWORD=your_secure_password
+OPENROUTE_API_KEY=your_api_key_here  # Obtener en https://openrouteservice.org
+```
 
-Three main roles:
+### 2. Iniciar Servicios
 
-Administrator
+```bash
+docker-compose up -d
+```
 
-User (Customer)
+### 3. Verificar
 
-Company
+```bash
+# Eureka Dashboard
+http://localhost:8761
 
-Services and endpoints will be protected using secure session tokens.
+# Swagger UI
+http://localhost:8082/swagger-ui.html  # User Service
+http://localhost:8083/swagger-ui.html  # Catalog Service
 
-The Auth Service will coordinate authentication and authorization across all services.
+# Health Checks
+curl http://localhost:8080/actuator/health  # API Gateway
+curl http://localhost:8082/actuator/health  # User Service
+curl http://localhost:8083/actuator/health  # Catalog Service
+```
 
-🛠️ Infrastructure and Tools
+### Puertos
 
-Containers: Docker & Docker Compose (used from the start)
+| Servicio | Puerto | Expuesto |
+|----------|--------|----------|
+| API Gateway | 8080 | ✅ Public |
+| User Service | 8082 | 🔒 Internal |
+| Catalog Service | 8083 | 🔒 Internal |
+| Eureka | 8761 | 🟡 Dashboard |
+| PostgreSQL | 5432 | ⚠️ Dev only |
 
-Service Registry: Eureka Server
+---
 
-Orchestration (under evaluation): Kubernetes
+## 🗺️ Roadmap
 
-API Testing: Postman or Insomnia
+### ✅ Fase 1 - Core (Completado)
+- API Gateway con circuit breakers
+- User Service (CRUD completo)
+- Catalog Service (947 municipios + OpenRouteService)
+- Eureka Service Discovery
+- PostgreSQL con esquemas separados
+- Caché Caffeine multinivel
+- Dockerización completa
 
-CI/CD Pipeline: To be implemented (GitHub Actions or Jenkins)
+### 🚧 Fase 2 - Autenticación (En Progreso)
+- Auth Service con JWT
+- OAuth2 / OpenID Connect
+- Rate limiting por usuario
 
-Monitoring: Logging and metrics via the Eureka/Logging Service
+### 📋 Fase 3 - Negocio
+- Booking Service (reservas)
+- Payment Service (pagos)
+- Notification Service (emails/SMS)
+- Review Service (valoraciones)
 
-🎨 User Experience
+### 🚀 Fase 4 - Producción
+- CI/CD con GitHub Actions
+- Kubernetes
+- Monitoring (Prometheus + Grafana)
+- Centralized Logging (ELK)
 
-The landing page allows users to:
+---
 
-Select travel date
+## 👥 Equipo
 
-Choose route
+**Desarrollado con ❤️ por:**
 
-Specify number of passengers
+| Nombre | Rol | GitHub |
+|--------|-----|--------|
+| **Ainoha Barcia** | Backend Developer | [@AinohaBarcia](https://github.com/AinohaBarcia) |
+| **Gabriela Bustamante** | Backend Developer & DevOps / AI Integration | [@GabyB73](https://github.com/GabyB73) |
+| **Irina Ichim** | Full Stack Developer & DevOps / AI Integration | [@IrinaIchim](https://github.com/IrinaIchim) |
 
-Pick bus type (simple / medium / lux)
+### Agradecimientos Especiales
 
-The design will be clean, accessible, and visually appealing.
-The color palette and visual identity will be defined during the upcoming design iterations.
+Gracias a **Ainoha**, **Gabriela** e **Irina** por su dedicación, trabajo en equipo y excelentes contribuciones al desarrollo de BusConnect. Este proyecto no sería posible sin su esfuerzo y profesionalismo. 🎉
 
-💻 Development Standards
+---
 
-Each microservice is developed independently and documented thoroughly.
+## 📄 Licencia
 
-Issues format:
+⚠️ **Proyecto Privado** - Todos los derechos reservados a BusConnectTeam.
 
-[ServiceName #1] Short description
+---
 
-
-Repository conventions:
-
-Code: English naming conventions
-
-Comments & JavaDoc: Spanish
-
-Each developer works in an individual branch, with optional feature sub-branches.
-
-All bugs and fixes must be properly documented.
-
-⏳ To Be Added
-
- Add a “How to run locally” section (e.g., Docker commands, environment setup)
-
- Include badges (build status, Docker, version) for GitHub polish
+**Última actualización**: Enero 2026
