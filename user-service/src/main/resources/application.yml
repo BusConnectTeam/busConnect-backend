@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: user-service
+  security:
+    jwt:
+      secret-key: ${JWT_SECRET}
+      expiration: 86400000 # 1 day
 
   # ✅ Configuración JDBC para Flyway (migraciones)
   datasource:
