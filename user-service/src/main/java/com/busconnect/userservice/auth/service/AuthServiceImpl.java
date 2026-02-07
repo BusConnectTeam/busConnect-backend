@@ -33,10 +33,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public Mono<AuthResponse> register(CreateUserRequest request) {
         log.info("Registering new user with email: {}", request.getEmail());
-        // Default role to CUSTOMER for public registration if not specified
-        if (request.getRole() == null) {
-            request.setRole(UserRole.CUSTOMER);
-        }
+        // Force role to CUSTOMER for public registration
+        request.setRole(UserRole.CUSTOMER);
 
         return userService.createUser(request)
                 .map(savedUser -> {
