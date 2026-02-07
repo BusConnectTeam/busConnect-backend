@@ -8,10 +8,9 @@ import com.busconnect.userservice.exception.UserAlreadyActiveException;
 import com.busconnect.userservice.exception.UserNotFoundException;
 import com.busconnect.userservice.model.User;
 import com.busconnect.userservice.repository.UserRepository;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -21,12 +20,14 @@ import java.time.LocalDateTime;
 /**
  * Implementation reactive of UserService.
  */
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     /**
      * Create a new user.
@@ -44,6 +45,7 @@ public class UserServiceImpl implements UserService {
                     }
                     User user = new User();
                     user.setEmail(request.getEmail());
+                    user.setPassword(passwordEncoder.encode(request.getPassword()));
                     user.setFirstName(request.getFirstName());
                     user.setLastName(request.getLastName());
                     user.setPhone(request.getPhone());
@@ -53,8 +55,8 @@ public class UserServiceImpl implements UserService {
                     user.setActive(true);
 
                     return userRepository.save(user)
-                            .doOnSuccess(savedUser ->
-                                    log.debug("User created successfully with ID: {}", savedUser.getId()))
+                            .doOnSuccess(
+                                    savedUser -> log.debug("User created successfully with ID: {}", savedUser.getId()))
                             .map(this::toResponse);
                 });
     }
@@ -111,20 +113,28 @@ public class UserServiceImpl implements UserService {
                                         return Mono.error(new EmailAlreadyExistsException("email.already.exists"));
                                     }
                                     existingUser.setEmail(request.getEmail());
-                                    if (request.getFirstName() != null) existingUser.setFirstName(request.getFirstName());
-                                    if (request.getLastName() != null) existingUser.setLastName(request.getLastName());
-                                    if (request.getPhone() != null) existingUser.setPhone(request.getPhone());
-                                    if (request.getRole() != null) existingUser.setRole(request.getRole());
+                                    if (request.getFirstName() != null)
+                                        existingUser.setFirstName(request.getFirstName());
+                                    if (request.getLastName() != null)
+                                        existingUser.setLastName(request.getLastName());
+                                    if (request.getPhone() != null)
+                                        existingUser.setPhone(request.getPhone());
+                                    if (request.getRole() != null)
+                                        existingUser.setRole(request.getRole());
                                     existingUser.setUpdatedAt(LocalDateTime.now());
                                     return userRepository.save(existingUser)
                                             .map(this::toResponse);
                                 });
                     } else {
                         // Continúa con el resto de las actualizaciones si el email no cambia
-                        if (request.getFirstName() != null) existingUser.setFirstName(request.getFirstName());
-                        if (request.getLastName() != null) existingUser.setLastName(request.getLastName());
-                        if (request.getPhone() != null) existingUser.setPhone(request.getPhone());
-                        if (request.getRole() != null) existingUser.setRole(request.getRole());
+                        if (request.getFirstName() != null)
+                            existingUser.setFirstName(request.getFirstName());
+                        if (request.getLastName() != null)
+                            existingUser.setLastName(request.getLastName());
+                        if (request.getPhone() != null)
+                            existingUser.setPhone(request.getPhone());
+                        if (request.getRole() != null)
+                            existingUser.setRole(request.getRole());
                         existingUser.setUpdatedAt(LocalDateTime.now());
                         return userRepository.save(existingUser)
                                 .map(this::toResponse);
@@ -220,7 +230,6 @@ public class UserServiceImpl implements UserService {
                 user.getRole(),
                 user.isActive(),
                 user.getCreatedAt(),
-                user.getUpdatedAt()
-        );
+                user.getUpdatedAt());
     }
 }
