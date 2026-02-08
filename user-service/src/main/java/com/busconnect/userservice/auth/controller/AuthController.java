@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/users/auth")
 @RequiredArgsConstructor
 public class AuthController {
 

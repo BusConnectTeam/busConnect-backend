@@ -31,7 +31,7 @@ public class SecurityConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
                         // Permitir acceso público a endpoints de autenticación
-                        .pathMatchers("/auth/**").permitAll()
+                        .pathMatchers("/api/users/auth/**").permitAll()
                         // Bloquear cualquier otra petición
                         .anyExchange().authenticated())
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
