@@ -30,6 +30,14 @@ public class JwtUtil {
     private long jwtExpiration;
 
     /**
+     * Gets the configured expiration time for JWT tokens.
+     * @return expiration time in milliseconds.
+     */
+    public long getExpirationTime() {
+        return jwtExpiration;
+    }
+
+    /**
      * Extracts the username (subject) from a token.
      *
      * @param token the JWT token
@@ -39,6 +47,14 @@ public class JwtUtil {
         return extractClaim(token, Claims::getSubject);
     }
 
+    /**
+     * Generic method to extract a specific claim from the token.
+     *
+     * @param token the JWT token
+     * @param claimsResolver function to extract the claim
+     * @param <T> type of the claim
+     * @return the extracted claim
+     */
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
@@ -54,10 +70,20 @@ public class JwtUtil {
         return generateToken(new HashMap<>(), userDetails);
     }
 
+    /**
+     * Generates a token with extra claims and user details.
+     *
+     * @param extraClaims map of additional claims to include in the token
+     * @param userDetails the user details
+     * @return the generated JWT token
+     */
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
         return buildToken(extraClaims, userDetails, jwtExpiration);
     }
 
+    /**
+     * Helper method to build the JWT token with specified claims and expiration.
+     */
     private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, long expiration) {
         return Jwts.builder()
                 .setClaims(extraClaims)

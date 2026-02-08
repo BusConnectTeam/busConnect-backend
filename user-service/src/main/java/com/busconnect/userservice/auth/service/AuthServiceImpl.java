@@ -20,6 +20,11 @@ import java.time.LocalDateTime;
 
 import static org.springframework.security.core.userdetails.User.withUsername;
 
+/**
+ * Implementation of AuthService using Spring WebFlux and Reactive patterns.
+ * This service handles the business logic for user self-registration and
+ * secure authentication using JWT.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -30,6 +35,12 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
     private final UserService userService;
 
+    /**
+     * Registers a new user in the system.
+     * Hardcodes the role to CUSTOMER to prevent privilege escalation from public endpoints.
+     * * @param request The user creation data.
+     * @return A Mono containing the AuthResponse with the first JWT.
+     */
     @Override
     public Mono<AuthResponse> register(CreateUserRequest request) {
         log.info("Registering new user with email: {}", request.getEmail());
@@ -45,38 +56,47 @@ public class AuthServiceImpl implements AuthService {
 
                     return AuthResponse.builder()
                             .token(token)
-                            .userId(savedUser.getId())
                             .email(savedUser.getEmail())
                             .firstName(savedUser.getFirstName())
                             .lastName(savedUser.getLastName())
                             .role(savedUser.getRole().name())
                             .issuedAt(LocalDateTime.now())
+                            .expiresAt(LocalDateTime.now().plus(jwtUtil.getExpirationTime(),
+                                    java.time.temporal.ChronoUnit.MILLIS))
                             .build();
                 });
     }
 
+    /**
+     * Authenticates a user and generates a session token.
+     * Validates credentials, user existence, and active status.
+     * * @param request The login credentials (email and password).
+     * @return A Mono with the AuthResponse and the session JWT.
+     * @throws BadCredentialsException if authentication fails.
+     */
     @Override
     public Mono<AuthResponse> login(LoginRequest request) {
         return userRepository.findByEmail(request.getEmail())
-                .switchIfEmpty(Mono.error(new BadCredentialsException("Invalid credentials")))
+                .switchIfEmpty(Mono.error(new BadCredentialsException("auth.login.invalid")))
                 .flatMap(user -> {
                     if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-                        return Mono.error(new BadCredentialsException("Invalid credentials"));
+                        return Mono.error(new BadCredentialsException("auth.login.invalid"));
                     }
                     if (!user.isActive()) {
-                        return Mono.error(new BadCredentialsException("User is not active"));
+                        return Mono.error(new BadCredentialsException("auth.user.inactive"));
                     }
 
                     String token = jwtUtil.generateToken(mapToUserDetails(user));
 
                     return Mono.just(AuthResponse.builder()
                             .token(token)
-                            .userId(user.getId())
                             .email(user.getEmail())
                             .firstName(user.getFirstName())
                             .lastName(user.getLastName())
                             .role(user.getRole().name())
                             .issuedAt(LocalDateTime.now())
+                            .expiresAt(LocalDateTime.now().plus(jwtUtil.getExpirationTime(),
+                                    java.time.temporal.ChronoUnit.MILLIS))
                             .build());
                 });
     }
