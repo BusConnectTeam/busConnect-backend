@@ -31,6 +31,7 @@ public class JwtUtil {
 
     /**
      * Gets the configured expiration time for JWT tokens.
+     * 
      * @return expiration time in milliseconds.
      */
     public long getExpirationTime() {
@@ -50,9 +51,9 @@ public class JwtUtil {
     /**
      * Generic method to extract a specific claim from the token.
      *
-     * @param token the JWT token
+     * @param token          the JWT token
      * @param claimsResolver function to extract the claim
-     * @param <T> type of the claim
+     * @param <T>            type of the claim
      * @return the extracted claim
      */
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
@@ -95,6 +96,20 @@ public class JwtUtil {
     }
 
     /**
+     * Validates the token signature and expiration.
+     *
+     * @param token the JWT token
+     * @return true if the token is valid, false otherwise
+     */
+    public boolean validateToken(String token) {
+        try {
+            return !isTokenExpired(token);
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /**
      * Validates if a token is valid for a given user.
      *
      * @param token       the JWT token
@@ -104,7 +119,7 @@ public class JwtUtil {
     public boolean isTokenValid(String token, UserDetails userDetails) {
         try {
             final String username = extractUsername(token);
-            return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+            return (username.equals(userDetails.getUsername())) && validateToken(token);
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
