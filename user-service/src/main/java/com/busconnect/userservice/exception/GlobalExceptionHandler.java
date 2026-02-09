@@ -7,11 +7,14 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.support.WebExchangeBindException;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+
 /**
  * Global handler for exceptions in the microservice (Reactive version).
  * Returns responses with standard format and localized messages.
@@ -33,20 +36,18 @@ public class GlobalExceptionHandler {
     public Mono<ResponseEntity<ErrorResponse>> handleEmailAlreadyExistsException(EmailAlreadyExistsException ex) {
         log.error("EmailAlreadyExistsException: {}", ex.getMessage());
 
-        return Mono.fromCallable(() ->{
+        return Mono.fromCallable(() -> {
             String localizedMessage = messageSource.getMessage(
                     ex.getMessage(),
                     null,
                     ex.getMessage(),
-                    LocaleContextHolder.getLocale()
-            );
+                    LocaleContextHolder.getLocale());
 
             ErrorResponse errorResponse = new ErrorResponse(
                     HttpStatus.CONFLICT.value(),
                     "USER_EMAIL_EXISTS",
                     localizedMessage,
-                    LocalDateTime.now()
-            );
+                    LocalDateTime.now());
 
             return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
         });
@@ -63,20 +64,18 @@ public class GlobalExceptionHandler {
     public Mono<ResponseEntity<ErrorResponse>> handleUserNotFoundException(UserNotFoundException ex) {
         log.error("UserNotFoundException: {}", ex.getMessage());
 
-        return Mono.fromCallable(() ->{
+        return Mono.fromCallable(() -> {
             String localizedMessage = messageSource.getMessage(
                     ex.getMessage(),
                     null,
                     ex.getMessage(),
-                    LocaleContextHolder.getLocale()
-            );
+                    LocaleContextHolder.getLocale());
 
             ErrorResponse errorResponse = new ErrorResponse(
                     HttpStatus.NOT_FOUND.value(),
                     "USER_NOT_FOUND",
                     localizedMessage,
-                    LocalDateTime.now()
-            );
+                    LocalDateTime.now());
 
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
         });
@@ -92,20 +91,18 @@ public class GlobalExceptionHandler {
     public Mono<ResponseEntity<ErrorResponse>> handleUserAlreadyActiveException(UserAlreadyActiveException ex) {
         log.error("UserAlreadyActiveException: {}", ex.getMessage());
 
-        return Mono.fromCallable(() ->{
+        return Mono.fromCallable(() -> {
             String localizedMessage = messageSource.getMessage(
                     ex.getMessage(),
                     null,
                     ex.getMessage(),
-                    LocaleContextHolder.getLocale()
-            );
+                    LocaleContextHolder.getLocale());
 
             ErrorResponse errorResponse = new ErrorResponse(
                     HttpStatus.BAD_REQUEST.value(),
                     "USER_ALREADY_ACTIVE",
                     localizedMessage,
-                    LocalDateTime.now()
-            );
+                    LocalDateTime.now());
 
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         });
@@ -126,10 +123,32 @@ public class GlobalExceptionHandler {
                     HttpStatus.INTERNAL_SERVER_ERROR.value(),
                     "INTERNAL_SERVER_ERROR",
                     "An unexpected error occurred. Please contact support if this persists.",
-                    LocalDateTime.now()
-            );
+                    LocalDateTime.now());
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         });
     }
+
+    /**
+     * Handles validation errors (WebExchangeBindException).
+     *
+     * @param ex the exception
+     * @return Mono with error response
+     */
+    @ExceptionHandler(WebExchangeBindException.class)
+    public Mono<ResponseEntity<ErrorResponse>> handleValidationException(WebExchangeBindException ex) {
+        String errorMessage = ex.getBindingResult().getAllErrors().stream()
+                .map(ObjectError::getDefaultMessage)
+                .findFirst()
+                .orElse("Validation failed");
+
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "VALIDATION_ERROR",
+                errorMessage,
+                LocalDateTime.now());
+
+        return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse));
+    }
+
 }
