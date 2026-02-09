@@ -71,6 +71,7 @@ services:
       DB_USERNAME: ${POSTGRES_USER:-busconnect_user}
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-service:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET}
     ports:
       - "8082:8082"
     networks:

@@ -1,0 +1,22 @@
+# Test Profile Configuration
+# This profile is used for unit/integration tests to avoid Docker dependencies
+
+spring:
+  security:
+    jwt:
+      secret-key: test-secret-key-for-testing-purposes-only-min-256-bits-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      expiration: 86400000 # 24 hours in milliseconds
+
+# Disable R2DBC for tests (using mocks instead)
+  r2dbc:
+    enabled: false
+  
+# Disable Flyway for tests
+  flyway:
+    enabled: false
+
+# Logging for tests
+logging:
+  level:
+    com.busconnect.userservice: DEBUG
+    org.springframework.security: DEBUG
