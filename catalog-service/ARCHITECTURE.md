@@ -13,23 +13,23 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant ORS as OpenRouteService API
     
-    Client->>Gateway: POST /api/routes/calculate<br/>{originMunicipality, destinationMunicipality}
+    Client->>Gateway: POST /api/routes/calculate<br/>Request body with municipalities
     Gateway->>Catalog: POST /routes/calculate
     
     Note over Catalog: 1. Validar municipios
     
-    Catalog->>Cache: ¿Municipio origen en caché?
+    Catalog->>Cache: Check municipio origen en cache?
     Cache-->>Catalog: Miss
     Catalog->>DB: SELECT * FROM municipalities<br/>WHERE name ILIKE originName
-    DB-->>Catalog: Municipality(lat, lon)
-    Catalog->>Cache: Store municipio (24h)
+    DB-->>Catalog: Municipality data with lat/lon
+    Catalog->>Cache: Store municipio 24h
     
-    Catalog->>Cache: ¿Municipio destino en caché?
-    Cache-->>Catalog: Hit ✓
+    Catalog->>Cache: Check municipio destino en cache?
+    Cache-->>Catalog: Hit OK
     
     Note over Catalog: 2. Generar cache key<br/>origin_dest_driving
     
-    Catalog->>Cache: ¿Ruta calculada?
+    Catalog->>Cache: Check ruta calculada?
     Cache-->>Catalog: Miss
     
     Note over Catalog: 3. Llamar OpenRouteService
@@ -38,7 +38,7 @@ sequenceDiagram
     
     Note over ORS: Rate Limit Check<br/>2000 calls/day
     
-    ORS-->>Catalog: {<br/>  distance: 85.5 km<br/>  duration: 3600 s<br/>  geometry: encoded<br/>}
+    ORS-->>Catalog: Response:<br/>distance 85.5 km duration 3600 s<br/>geometry encoded
     
     Note over Catalog: 4. Procesar respuesta
     
@@ -56,31 +56,31 @@ Estrategia de caché con Caffeine para optimizar rendimiento:
 
 ```mermaid
 flowchart TB
-    Request[Request: Calculate Route] --> ParseInput[Parse Input<br/>originMunicipality, destinationMunicipality]
+    Request[Request: Calculate Route] --> ParseInput[Parse Input municipalities]
     
     ParseInput --> CacheKey[Generate Cache Key<br/>origin-destination]
     
     CacheKey --> RouteCache{Route Cache<br/>Caffeine}
     
-    RouteCache -->|HIT ✓<br/>1h TTL| ReturnCached[Return Cached Route<br/>⚡ ~1ms]
+    RouteCache -->|HIT - 1h TTL| ReturnCached[Return Cached Route - ~1ms]
     
-    RouteCache -->|MISS| MuniCache1{Municipality Cache<br/>Origin}
+    RouteCache -->|MISS| MuniCache1{Municipality Cache Origin}
     
-    MuniCache1 -->|HIT ✓<br/>24h TTL| UseCached1[Use Cached Municipality]
-    MuniCache1 -->|MISS| FetchDB1[Fetch from DB<br/>~10ms]
+    MuniCache1 -->|HIT - 24h TTL| UseCached1[Use Cached Municipality]
+    MuniCache1 -->|MISS| FetchDB1[Fetch from DB ~10ms]
     FetchDB1 --> StoreCache1[Store in Cache]
     StoreCache1 --> UseCached1
     
-    UseCached1 --> MuniCache2{Municipality Cache<br/>Destination}
+    UseCached1 --> MuniCache2{Municipality Cache Destination}
     
-    MuniCache2 -->|HIT ✓<br/>24h TTL| UseCached2[Use Cached Municipality]
-    MuniCache2 -->|MISS| FetchDB2[Fetch from DB<br/>~10ms]
+    MuniCache2 -->|HIT - 24h TTL| UseCached2[Use Cached Municipality]
+    MuniCache2 -->|MISS| FetchDB2[Fetch from DB ~10ms]
     FetchDB2 --> StoreCache2[Store in Cache]
     StoreCache2 --> UseCached2
     
-    UseCached2 --> CallORS[Call OpenRouteService<br/>~500-2000ms]
+    UseCached2 --> CallORS[Call OpenRouteService ~500-2000ms]
     
-    CallORS --> StoreRoute[Store Route in Cache<br/>1h TTL]
+    CallORS --> StoreRoute[Store Route in Cache 1h TTL]
     StoreRoute --> SaveDB[Save to DB]
     SaveDB --> ReturnNew[Return New Route]
     
@@ -127,30 +127,30 @@ Flujo de comunicación con la API externa:
 
 ```mermaid
 flowchart TB
-    Start[Catalog Service] --> RateCheck{Rate Limit Check<br/>2000/day}
+    Start[Catalog Service] --> RateCheck{Rate Limit Check 2000/day}
     
-    RateCheck -->|Límite alcanzado| RateLimitError[429 Too Many Requests<br/>Retry-After: 86400s]
+    RateCheck -->|Límite alcanzado| RateLimitError[429 Too Many Requests]
     RateCheck -->|OK ✓| PrepareRequest[Preparar Request]
     
-    PrepareRequest --> BuildURL[Build Request URL:<br/>/v2/directions/driving-car<br/>?api_key=KEY<br/>&start=lon1,lat1<br/>&end=lon2,lat2]
+    PrepareRequest --> BuildURL[Build Request URL<br/>with coordinates]
     
-    BuildURL --> SendRequest[GET<br/>https://api.openrouteservice.org<br/>/v2/directions/driving-car]
+    BuildURL --> SendRequest[GET OpenRouteService API]
     
-    SendRequest --> ORSProcess[OpenRouteService<br/>Processing]
+    SendRequest --> ORSProcess[OpenRouteService Processing]
     
     ORSProcess --> CheckResponse{Response Status}
     
-    CheckResponse -->|200 OK| ParseSuccess[Parse Response:<br/>- distance (meters)<br/>- duration (seconds)<br/>- geometry (GeoJSON)<br/>- bbox (bounding box)]
+    CheckResponse -->|200 OK| ParseSuccess[Parse Response:<br/>distance, duration, geometry]
     
-    CheckResponse -->|400 Bad Request| ValidationError[Invalid Coordinates<br/>o parámetros]
+    CheckResponse -->|400 Bad Request| ValidationError[Invalid Coordinates]
     
-    CheckResponse -->|401 Unauthorized| AuthError[API Key inválida]
+    CheckResponse -->|401 Unauthorized| AuthError[API Key invalida]
     
-    CheckResponse -->|404 Not Found| RouteNotFound[No route found<br/>entre puntos]
+    CheckResponse -->|404 Not Found| RouteNotFound[No route found]
     
-    CheckResponse -->|503 Service Unavailable| ServiceDown[ORS temporalmente<br/>no disponible]
+    CheckResponse -->|503 Service Unavailable| ServiceDown[ORS temporarily unavailable]
     
-    ParseSuccess --> CacheStore[Store in Cache<br/>1h TTL]
+    ParseSuccess --> CacheStore[Store in Cache 1h TTL]
     CacheStore --> Success[Return Route Response]
     
     ValidationError --> ErrorResponse[Error Response]
@@ -198,12 +198,12 @@ Arquitectura de datos para 947 municipios de Catalunya:
 
 ```mermaid
 flowchart TB
-    Start[Application Startup] --> Flyway[Flyway Migration<br/>V1__create_schema]
+    Start[Application Startup] --> Flyway[Flyway Migration V1]
     
     Flyway --> CreateTable[CREATE TABLE municipalities]
-    CreateTable --> LoadData[INSERT 947 municipios<br/>con coordenadas]
+    CreateTable --> LoadData[INSERT 947 municipios]
     
-    LoadData --> Complete[✓ 947 municipios cargados]
+    LoadData --> Complete[947 municipios cargados OK]
     
     subgraph " "
         Complete --> Ready[Service Ready]
@@ -215,23 +215,23 @@ flowchart TB
     
     SearchType -->|GET /municipalities| GetAll[Listar todos<br/>947 municipios]
     SearchType -->|GET /municipalities/search| SearchByName[Buscar por nombre]
-    SearchType -->|GET /municipalities/{province}| SearchByProvince[Buscar por provincia]
+    SearchType -->|GET by province| SearchByProvince[Buscar por provincia]
     
-    GetAll --> CacheCheck1{En caché?}
+    GetAll --> CacheCheck1{En cache?}
     CacheCheck1 -->|Yes| ReturnCached1[Return from cache]
-    CacheCheck1 -->|No| QueryDB1[SELECT * FROM municipalities<br/>ORDER BY name]
+    CacheCheck1 -->|No| QueryDB1[SELECT all ORDER BY name]
     QueryDB1 --> StoreCache1[Store 24h]
     StoreCache1 --> ReturnCached1
     
-    SearchByName --> CacheCheck2{En caché?}
+    SearchByName --> CacheCheck2{En cache?}
     CacheCheck2 -->|Yes| ReturnCached2[Return from cache]
-    CacheCheck2 -->|No| QueryDB2[SELECT * WHERE<br/>name ILIKE '%query%']
+    CacheCheck2 -->|No| QueryDB2[SELECT WHERE name ILIKE query]
     QueryDB2 --> StoreCache2[Store 24h]
     StoreCache2 --> ReturnCached2
     
-    SearchByProvince --> CacheCheck3{En caché?}
+    SearchByProvince --> CacheCheck3{En cache?}
     CacheCheck3 -->|Yes| ReturnCached3[Return from cache]
-    CacheCheck3 -->|No| QueryDB3[SELECT * WHERE<br/>province = ?]
+    CacheCheck3 -->|No| QueryDB3[SELECT WHERE province equals]
     QueryDB3 --> StoreCache3[Store 24h]
     StoreCache3 --> ReturnCached3
     
@@ -414,7 +414,7 @@ stateDiagram-v2
     Requested --> Validating: Validar municipios
     
     Validating --> Invalid: Municipio no existe
-    Validating --> CacheCheck: Municipios válidos ✓
+    Validating --> CacheCheck: Municipios validos OK
     
     CacheCheck --> Cached: Ruta en caché (hit)
     CacheCheck --> Calculating: No en caché (miss)
@@ -436,15 +436,15 @@ stateDiagram-v2
     APIError --> [*]
     
     note right of Cached
-        ⚡ Fast path
-        ~1-5ms response
-        (desde caché)
+        Fast path
+        1-5ms response
+        desde cache
     end note
     
     note right of Calculated
-        🐌 Slow path  
-        ~500-2000ms response
-        (llamada API externa)
+        Slow path  
+        500-2000ms response
+        llamada API externa
     end note
 ```
 
@@ -455,15 +455,15 @@ stateDiagram-v2
 Stack técnico con Spring WebFlux:
 
 ```mermaid
-flowchart LR
-    Client[Client Request] --> Controller[RouteController<br/>@RestController]
+flowchart TB
+    Client[Client Request] --> Controller[RouteController]
     
-    Controller --> ORS[OpenRouteService<br/>@Service]
-    Controller --> MuniService[MunicipalityService<br/>@Service]
+    Controller --> ORS[OpenRouteService]
+    Controller --> MuniService[MunicipalityService]
     
-    ORS --> Cache[CacheManager<br/>Caffeine]
-    ORS --> MuniRepo[MunicipalityRepository<br/>R2DBC]
-    ORS --> WebClient[WebClient<br/>OpenRouteService API]
+    ORS --> Cache[CacheManager Caffeine]
+    ORS --> MuniRepo[MunicipalityRepository R2DBC]
+    ORS --> WebClient[WebClient API]
     
     MuniService --> MuniRepo
     MuniService --> Cache
@@ -473,12 +473,12 @@ flowchart LR
     MuniRepo -.->|Mono/Flux| MuniService
     WebClient -.->|Mono| ORS
     
-    ORS -.->|Mono<RouteResultResponse>| Controller
-    MuniService -.->|Flux<Municipality>| Controller
+    ORS -.->|Mono RouteResultResponse| Controller
+    MuniService -.->|Flux Municipality| Controller
     Controller -.->|JSON| Client
     
-    MuniRepo --> R2DBC[R2DBC Pool<br/>PostgreSQL]
-    R2DBC --> DB[(PostgreSQL<br/>catalog schema)]
+    MuniRepo --> R2DBC[R2DBC Pool PostgreSQL]
+    R2DBC --> DB[(PostgreSQL catalog)]
     
     style Controller fill:#4CAF50,stroke:#2E7D32,color:#fff
     style ORS fill:#2196F3,stroke:#1565C0,color:#fff
