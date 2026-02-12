@@ -13,14 +13,14 @@ sequenceDiagram
     participant DB as PostgreSQL
     participant ORS as OpenRouteService API
     
-    Client->>Gateway: POST /api/catalog/calculate<br/>{originId, destinationId}
-    Gateway->>Catalog: POST /calculate
+    Client->>Gateway: POST /api/routes/calculate<br/>{originMunicipality, destinationMunicipality}
+    Gateway->>Catalog: POST /routes/calculate
     
     Note over Catalog: 1. Validar municipios
     
     Catalog->>Cache: ¿Municipio origen en caché?
     Cache-->>Catalog: Miss
-    Catalog->>DB: SELECT * FROM municipalities<br/>WHERE id = originId
+    Catalog->>DB: SELECT * FROM municipalities<br/>WHERE name ILIKE originName
     DB-->>Catalog: Municipality(lat, lon)
     Catalog->>Cache: Store municipio (24h)
     
@@ -34,7 +34,7 @@ sequenceDiagram
     
     Note over Catalog: 3. Llamar OpenRouteService
     
-    Catalog->>ORS: POST /v2/directions/driving-car<br/>coordinates: [[lon1,lat1],[lon2,lat2]]
+    Catalog->>ORS: GET /v2/directions/driving-car<br/>?start=lon1,lat1&end=lon2,lat2
     
     Note over ORS: Rate Limit Check<br/>2000 calls/day
     
@@ -43,7 +43,6 @@ sequenceDiagram
     Note over Catalog: 4. Procesar respuesta
     
     Catalog->>Cache: Store ruta (1h TTL)
-    Catalog->>DB: INSERT INTO routes
     
     Catalog-->>Gateway: 200 OK<br/>{route details}
     Gateway-->>Client: Route Response
@@ -57,9 +56,9 @@ Estrategia de caché con Caffeine para optimizar rendimiento:
 
 ```mermaid
 flowchart TB
-    Request[Request: Calculate Route] --> ParseInput[Parse Input<br/>originId, destinationId]
+    Request[Request: Calculate Route] --> ParseInput[Parse Input<br/>originMunicipality, destinationMunicipality]
     
-    ParseInput --> CacheKey[Generate Cache Key<br/>origin_dest_profile]
+    ParseInput --> CacheKey[Generate Cache Key<br/>origin-destination]
     
     CacheKey --> RouteCache{Route Cache<br/>Caffeine}
     
@@ -104,16 +103,20 @@ flowchart TB
 | **DB Query** | - | - | - | ~10-50ms |
 | **OpenRouteService** | - | - | - | ~500-2000ms |
 
+**Nota**: Las rutas calculadas NO se persisten en base de datos. Son efímeras y solo viven en caché durante 1 hora. Esto evita almacenamiento innecesario ya que las rutas pueden recalcularse bajo demanda.
+
 ### Estrategia de Keys
 
 ```
 Route Cache Key Format:
-{originId}_{destinationId}_{profile}
+{origin}-{destination}
 
 Ejemplos:
-"08001_08015_driving"    → Barcelona a Badalona (coche)
-"08001_08015_cycling"    → Barcelona a Badalona (bici)
-"08089_08245_driving"    → Manresa a Vic (coche)
+"barcelona-badalona"    → Barcelona a Badalona
+"barcelona-girona"      → Barcelona a Girona
+"manresa-vic"           → Manresa a Vic
+
+Nota: Los nombres se normalizan a minúsculas y se eliminan espacios
 ```
 
 ---
@@ -129,11 +132,9 @@ flowchart TB
     RateCheck -->|Límite alcanzado| RateLimitError[429 Too Many Requests<br/>Retry-After: 86400s]
     RateCheck -->|OK ✓| PrepareRequest[Preparar Request]
     
-    PrepareRequest --> BuildBody[Build Request Body:<br/>coordinates: [[lon1,lat1], [lon2,lat2]]<br/>profile: driving-car<br/>format: geojson<br/>units: m]
+    PrepareRequest --> BuildURL[Build Request URL:<br/>/v2/directions/driving-car<br/>?api_key=KEY<br/>&start=lon1,lat1<br/>&end=lon2,lat2]
     
-    BuildBody --> AddHeaders[Add Headers:<br/>Authorization: Bearer API_KEY<br/>Content-Type: application/json<br/>Accept: application/json]
-    
-    AddHeaders --> SendRequest[POST<br/>https://api.openrouteservice.org<br/>/v2/directions/driving-car]
+    BuildURL --> SendRequest[GET<br/>https://api.openrouteservice.org<br/>/v2/directions/driving-car]
     
     SendRequest --> ORSProcess[OpenRouteService<br/>Processing]
     
@@ -149,11 +150,8 @@ flowchart TB
     
     CheckResponse -->|503 Service Unavailable| ServiceDown[ORS temporalmente<br/>no disponible]
     
-    ParseSuccess --> Transform[Transform to Domain Model:<br/>Route entity]
-    
-    Transform --> CacheStore[Store in Cache<br/>1h TTL]
-    CacheStore --> DBStore[Persist to DB]
-    DBStore --> Success[Return Route]
+    ParseSuccess --> CacheStore[Store in Cache<br/>1h TTL]
+    CacheStore --> Success[Return Route Response]
     
     ValidationError --> ErrorResponse[Error Response]
     AuthError --> ErrorResponse
@@ -217,6 +215,7 @@ flowchart TB
     
     SearchType -->|GET /municipalities| GetAll[Listar todos<br/>947 municipios]
     SearchType -->|GET /municipalities/search| SearchByName[Buscar por nombre]
+    SearchType -->|GET /municipalities/{province}| SearchByProvince[Buscar por provincia]
     
     GetAll --> CacheCheck1{En caché?}
     CacheCheck1 -->|Yes| ReturnCached1[Return from cache]
@@ -230,7 +229,14 @@ flowchart TB
     QueryDB2 --> StoreCache2[Store 24h]
     StoreCache2 --> ReturnCached2
     
+    SearchByProvince --> CacheCheck3{En caché?}
+    CacheCheck3 -->|Yes| ReturnCached3[Return from cache]
+    CacheCheck3 -->|No| QueryDB3[SELECT * WHERE<br/>province = ?]
+    QueryDB3 --> StoreCache3[Store 24h]
+    StoreCache3 --> ReturnCached3
+    
     style Flyway fill:#4CAF50,stroke:#2E7D32,color:#fff
+    style CacheCheck3 fill:#FF9800,stroke:#E65100,color:#fff
     style Complete fill:#2196F3,stroke:#1565C0,color:#fff
     style CacheCheck1 fill:#FF9800,stroke:#E65100,color:#fff
     style CacheCheck2 fill:#FF9800,stroke:#E65100,color:#fff
@@ -240,118 +246,170 @@ flowchart TB
 
 ```
 Municipality Entity:
-├── id: Long (Primary Key)
+├── id: UUID (Primary Key)
 ├── name: String (e.g., "Barcelona")
-├── province: String (e.g., "Barcelona")
-├── latitude: Double (41.3851)
-├── longitude: Double (2.1734)
-├── postalCode: String (e.g., "08001")
-└── comarca: String (e.g., "Barcelonès")
+├── normalizedName: String (e.g., "barcelona")
+├── province: String (e.g., "Barcelona", "Girona", "Lleida", "Tarragona")
+├── latitude: BigDecimal (41.3874)
+├── longitude: BigDecimal (2.1686)
+├── postalCodes: String (e.g., "08001, 08002")
+├── isActive: Boolean (default: true)
+├── createdAt: LocalDateTime
+└── updatedAt: LocalDateTime
 
 Indices:
 ├── PRIMARY KEY (id)
 ├── INDEX idx_name (name)
+├── INDEX idx_normalized (normalized_name)
+├── INDEX idx_province (province)
+├── INDEX idx_active (is_active)
 └── INDEX idx_coordinates (latitude, longitude)
 
 Total registros: 947 municipios
-Storage: ~150 KB en DB
-Cache memory: ~500 KB (todos en memoria)
+- Barcelona: 311 municipios
+- Girona: 221 municipios  
+- Lleida: 231 municipios
+- Tarragona: 184 municipios
+
+Storage: ~200 KB en DB
+Cache memory: ~600 KB (todos en memoria)
 ```
 
 ---
 
 ## 📊 Modelo de Datos Completo
 
-Entidades y relaciones del servicio:
+Entidades principales del servicio:
 
 ```mermaid
 erDiagram
-    ROUTE ||--o{ COMPANY : "operated_by"
-    ROUTE ||--o{ SCHEDULE : "has"
-    ROUTE }o--|| MUNICIPALITY : "origin"
-    ROUTE }o--|| MUNICIPALITY : "destination"
-    ROUTE ||--|| VEHICLE_TYPE : "uses"
-    
-    ROUTE {
-        Long id PK
-        Long originId FK
-        Long destinationId FK
-        String originName
-        String destinationName
-        Double distance
-        Integer estimatedDuration
-        String geometry
-        LocalDateTime createdAt
-    }
+    MUNICIPALITY ||--o{ BUS_COMPANY : "operates_in"
+    BUS_COMPANY ||--o{ DRIVER : "employs"
+    BUS_COMPANY ||--o{ BUS_TYPE : "owns"
     
     MUNICIPALITY {
-        Long id PK
+        UUID id PK
         String name
+        String normalizedName
         String province
-        Double latitude
-        Double longitude
-        String postalCode
-        String comarca
-    }
-    
-    COMPANY {
-        Long id PK
-        String name
-        String contactInfo
+        BigDecimal latitude
+        BigDecimal longitude
+        String postalCodes
         Boolean isActive
+        LocalDateTime createdAt
+        LocalDateTime updatedAt
     }
     
-    SCHEDULE {
-        Long id PK
-        Long routeId FK
-        LocalTime departureTime
-        LocalTime arrivalTime
-        String dayOfWeek
+    BUS_COMPANY {
+        UUID id PK
+        String name
+        String legalName
+        String cif
+        String email
+        String phone
+        String address
+        String city
+        String postalCode
+        String website
+        String logoUrl
+        Integer foundedYear
+        Boolean isActive
+        LocalDateTime createdAt
+        LocalDateTime updatedAt
     }
     
-    VEHICLE_TYPE {
-        Long id PK
-        String type
+    DRIVER {
+        UUID id PK
+        UUID companyId FK
+        String firstName
+        String lastName
+        String dni
+        String email
+        String phone
+        LocalDate birthDate
+        LocalDate hireDate
+        String licenseNumber
+        LocalDate licenseExpiryDate
+        String licenseType
+        Integer yearsExperience
+        String languages
+        String photoUrl
+        Boolean isActive
+        LocalDateTime createdAt
+        LocalDateTime updatedAt
+    }
+    
+    BUS_TYPE {
+        UUID id PK
+        UUID companyId FK
+        String name
         Integer capacity
-        Boolean hasAccessibility
+        Boolean hasWifi
+        Boolean hasAc
+        Boolean hasUsbChargers
+        Boolean hasToilet
+        Boolean hasWheelchairAccess
+        Boolean hasLuggageCompartment
+        Boolean hasEntertainmentSystem
+        String seatType
+        String description
+        BigDecimal pricePerKm
+        Boolean isActive
+        LocalDateTime createdAt
+        LocalDateTime updatedAt
     }
 ```
 
 ### Queries Principales
 
 ```sql
--- 1. Buscar ruta entre municipios
-SELECT r.* FROM routes r
-WHERE r.origin_id = ? AND r.destination_id = ?
-ORDER BY r.created_at DESC LIMIT 1;
+-- 1. Buscar municipio por nombre (case-insensitive)
+SELECT * FROM catalog.municipalities
+WHERE LOWER(name) = LOWER(?)
+AND is_active = true;
 
--- 2. Buscar municipio por nombre
-SELECT * FROM municipalities
-WHERE name ILIKE '%?%'
+-- 2. Buscar municipios por nombre parcial
+SELECT * FROM catalog.municipalities
+WHERE name ILIKE CONCAT('%', ?, '%')
+AND is_active = true
 ORDER BY name;
 
--- 3. Rutas más frecuentes (analytics)
-SELECT origin_name, destination_name, COUNT(*) as total
-FROM routes
-GROUP BY origin_name, destination_name
-ORDER BY total DESC
-LIMIT 10;
+-- 3. Obtener municipios por provincia
+SELECT * FROM catalog.municipalities
+WHERE province = ?
+AND is_active = true
+ORDER BY name;
 
--- 4. Municipios sin rutas
-SELECT m.* FROM municipalities m
-LEFT JOIN routes r ON m.id = r.origin_id OR m.id = r.destination_id
-WHERE r.id IS NULL;
+-- 4. Buscar empresas activas
+SELECT * FROM catalog.bus_companies
+WHERE is_active = true
+ORDER BY name;
+
+-- 5. Conductores de una empresa
+SELECT * FROM catalog.drivers
+WHERE company_id = ?
+AND is_active = true
+ORDER BY last_name, first_name;
+
+-- 6. Tipos de autobuses con características específicas
+SELECT bt.*, bc.name as company_name
+FROM catalog.bus_types bt
+JOIN catalog.bus_companies bc ON bt.company_id = bc.id
+WHERE bt.has_wifi = true
+AND bt.has_wheelchair_access = true
+AND bt.is_active = true
+AND bc.is_active = true;
 ```
 
 ---
 
-## 🔄 Ciclo de Vida de una Ruta
+## 🔄 Ciclo de Vida de un Cálculo de Ruta
 
 Estados y procesamiento de una ruta calculada:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Requested: Client POST /calculate
+    [*] --> Requested: Client POST /routes/calculate
     
     Requested --> Validating: Validar municipios
     
@@ -367,8 +425,7 @@ stateDiagram-v2
     CallingAPI --> APIError: 4xx/5xx Error
     CallingAPI --> Calculated: 200 OK
     
-    Calculated --> Storing: Guardar en DB
-    Storing --> Caching: Guardar en caché (1h)
+    Calculated --> Caching: Guardar en caché (1h)
     Caching --> Completed: Return to client
     
     Cached --> Completed: Return cached data
@@ -381,11 +438,13 @@ stateDiagram-v2
     note right of Cached
         ⚡ Fast path
         ~1-5ms response
+        (desde caché)
     end note
     
     note right of Calculated
-        🐌 Slow path
+        🐌 Slow path  
         ~500-2000ms response
+        (llamada API externa)
     end note
 ```
 
@@ -399,26 +458,33 @@ Stack técnico con Spring WebFlux:
 flowchart LR
     Client[Client Request] --> Controller[RouteController<br/>@RestController]
     
-    Controller --> Service[RouteService<br/>@Service]
+    Controller --> ORS[OpenRouteService<br/>@Service]
+    Controller --> MuniService[MunicipalityService<br/>@Service]
     
-    Service --> Cache[CacheManager<br/>Caffeine]
-    Service --> Repo[RouteRepository<br/>R2DBC]
-    Service --> ORS[OpenRouteService<br/>WebClient]
+    ORS --> Cache[CacheManager<br/>Caffeine]
+    ORS --> MuniRepo[MunicipalityRepository<br/>R2DBC]
+    ORS --> WebClient[WebClient<br/>OpenRouteService API]
     
-    Cache -.->|Mono/Flux| Service
-    Repo -.->|Mono/Flux| Service
-    ORS -.->|Mono| Service
+    MuniService --> MuniRepo
+    MuniService --> Cache
     
-    Service -.->|Mono| Controller
+    Cache -.->|Mono/Flux| ORS
+    MuniRepo -.->|Mono/Flux| ORS
+    MuniRepo -.->|Mono/Flux| MuniService
+    WebClient -.->|Mono| ORS
+    
+    ORS -.->|Mono<RouteResultResponse>| Controller
+    MuniService -.->|Flux<Municipality>| Controller
     Controller -.->|JSON| Client
     
-    Repo --> R2DBC[R2DBC Pool<br/>PostgreSQL]
+    MuniRepo --> R2DBC[R2DBC Pool<br/>PostgreSQL]
     R2DBC --> DB[(PostgreSQL<br/>catalog schema)]
     
     style Controller fill:#4CAF50,stroke:#2E7D32,color:#fff
-    style Service fill:#2196F3,stroke:#1565C0,color:#fff
+    style ORS fill:#2196F3,stroke:#1565C0,color:#fff
+    style MuniService fill:#9C27B0,stroke:#6A1B9A,color:#fff
     style Cache fill:#FF9800,stroke:#E65100,color:#fff
-    style ORS fill:#9C27B0,stroke:#6A1B9A,color:#fff
+    style WebClient fill:#E91E63,stroke:#880E4F,color:#fff
     style DB fill:#00BCD4,stroke:#006064,color:#fff
 ```
 
