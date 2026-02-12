@@ -94,17 +94,28 @@ management:
       show-details: always
 
 ---
-# Profile: prod (Render - sin Eureka)
+# Profile: prod (Render - sin Eureka, sin health indicators bloqueantes)
 spring:
   config:
     activate:
       on-profile: prod
   cloud:
     discovery:
-      client:
-        health-indicator:
-          enabled: false
+      enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration
+      - org.springframework.cloud.netflix.eureka.EurekaDiscoveryClientConfiguration
 
 eureka:
   client:
     enabled: false
+
+management:
+  health:
+    defaults:
+      enabled: true
+    db:
+      enabled: false
+    r2dbc:
+      enabled: false

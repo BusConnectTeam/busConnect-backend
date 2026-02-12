@@ -40,7 +40,6 @@ services:
         fromDatabase:
           name: busconnect-db
           property: password
-    healthCheckPath: /actuator/health
 
   # Catalog Service
   - type: web
@@ -78,7 +77,6 @@ services:
           property: password
       - key: OPENROUTE_API_KEY
         sync: false
-    healthCheckPath: /actuator/health
 
   # API Gateway (Public - punto de entrada)
   - type: web
@@ -98,4 +96,3 @@ services:
         value: https://busconnect-catalog-service.onrender.com
       - key: USER_SERVICE_URL
         value: https://busconnect-user-service.onrender.com
-    healthCheckPath: /actuator/health

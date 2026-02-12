@@ -205,9 +205,11 @@ spring:
       on-profile: prod
   cloud:
     discovery:
-      client:
-        health-indicator:
-          enabled: false
+      enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration
+      - org.springframework.cloud.netflix.eureka.EurekaDiscoveryClientConfiguration
 
   r2dbc:
     pool:
