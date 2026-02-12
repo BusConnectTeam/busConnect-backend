@@ -92,3 +92,19 @@ management:
   endpoint:
     health:
       show-details: always
+
+---
+# Profile: prod (Render - sin Eureka)
+spring:
+  config:
+    activate:
+      on-profile: prod
+  cloud:
+    discovery:
+      client:
+        health-indicator:
+          enabled: false
+
+eureka:
+  client:
+    enabled: false

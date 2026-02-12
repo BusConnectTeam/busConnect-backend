@@ -6,22 +6,6 @@ databases:
     databaseName: busconnect
 
 services:
-  # Eureka Service Discovery
-  - type: web
-    name: busconnect-eureka
-    env: docker
-    plan: free
-    region: frankfurt
-    autoDeploy: true
-    dockerfilePath: ./eureka-service/Dockerfile
-    dockerContext: .
-    envVars:
-      - key: SPRING_PROFILES_ACTIVE
-        value: prod
-      - key: SERVER_PORT
-        value: 8761
-    healthCheckPath: /actuator/health
-
   # User Service
   - type: web
     name: busconnect-user-service
@@ -36,8 +20,6 @@ services:
         value: prod
       - key: SERVER_PORT
         value: 8082
-      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
-        value: https://busconnect-eureka.onrender.com/eureka/
       - key: DB_HOST
         fromDatabase:
           name: busconnect-db
@@ -74,8 +56,6 @@ services:
         value: prod
       - key: SERVER_PORT
         value: 8083
-      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
-        value: https://busconnect-eureka.onrender.com/eureka/
       - key: DB_HOST
         fromDatabase:
           name: busconnect-db
@@ -100,7 +80,7 @@ services:
         sync: false
     healthCheckPath: /actuator/health
 
-  # API Gateway (Public)
+  # API Gateway (Public - punto de entrada)
   - type: web
     name: busconnect-api-gateway
     env: docker
@@ -114,6 +94,8 @@ services:
         value: prod
       - key: SERVER_PORT
         value: 8080
-      - key: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
-        value: https://busconnect-eureka.onrender.com/eureka/
+      - key: CATALOG_SERVICE_URL
+        value: https://busconnect-catalog-service.onrender.com
+      - key: USER_SERVICE_URL
+        value: https://busconnect-user-service.onrender.com
     healthCheckPath: /actuator/health

@@ -203,23 +203,27 @@ spring:
   config:
     activate:
       on-profile: prod
+  cloud:
+    discovery:
+      client:
+        health-indicator:
+          enabled: false
 
   r2dbc:
     pool:
       initial-size: 20
-      max-size: 50  
+      max-size: 50
+
+eureka:
+  client:
+    enabled: false
 
 openroute:
   api:
-    timeout: 30s  
+    timeout: 30s
 
 logging:
   level:
     "[com.busconnect.catalogservice]": INFO
-    "[io.r2dbc.postgresql.QUERY]": WARN  
+    "[io.r2dbc.postgresql.QUERY]": WARN
     "[io.r2dbc.postgresql.PARAM]": WARN
-    
-  file:
-    name: /var/log/busconnect/catalog-service.log
-    max-size: 50MB
-    max-history: 90

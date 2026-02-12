@@ -15,7 +15,7 @@ spring:
       routes:
         # Catalog Service - Rutas de catálogo (reactivo)
         - id: catalog-service-routes
-          uri: lb://CATALOG-SERVICE
+          uri: ${CATALOG_SERVICE_URL:lb://CATALOG-SERVICE}
           predicates:
             - Path=/api/routes/**
           filters:
@@ -26,7 +26,7 @@ spring:
 
         # Catalog Service - Buses (rutas específicas primero)
         - id: catalog-service-buses
-          uri: lb://CATALOG-SERVICE
+          uri: ${CATALOG_SERVICE_URL:lb://CATALOG-SERVICE}
           predicates:
             - Path=/api/companies/buses/**
           filters:
@@ -37,7 +37,7 @@ spring:
 
         # Catalog Service - Drivers (rutas específicas primero)
         - id: catalog-service-drivers
-          uri: lb://CATALOG-SERVICE
+          uri: ${CATALOG_SERVICE_URL:lb://CATALOG-SERVICE}
           predicates:
             - Path=/api/companies/drivers/**
           filters:
@@ -48,7 +48,7 @@ spring:
 
         # Catalog Service - Empresas de autobuses (ruta general al final)
         - id: catalog-service-companies
-          uri: lb://CATALOG-SERVICE
+          uri: ${CATALOG_SERVICE_URL:lb://CATALOG-SERVICE}
           predicates:
             - Path=/api/companies/**
           filters:
@@ -59,7 +59,7 @@ spring:
 
         # User Service - Rutas de usuarios
         - id: user-service
-          uri: lb://USER-SERVICE
+          uri: ${USER_SERVICE_URL:lb://USER-SERVICE}
           predicates:
             - Path=/api/users/**
           filters:
@@ -154,6 +154,22 @@ logging:
   level:
     org.springframework.cloud.gateway: DEBUG
     reactor.netty: INFO
+
+---
+# Profile: prod (Render - sin Eureka, URLs directas)
+spring:
+  config:
+    activate:
+      on-profile: prod
+  cloud:
+    discovery:
+      client:
+        health-indicator:
+          enabled: false
+
+eureka:
+  client:
+    enabled: false
 
 ---
 # Profile: docker
