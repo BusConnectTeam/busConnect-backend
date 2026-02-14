@@ -15,7 +15,6 @@ services:
     autoDeploy: true
     dockerfilePath: ./user-service/Dockerfile
     dockerContext: .
-    healthCheckPath: /actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
