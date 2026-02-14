@@ -157,6 +157,9 @@ logging:
 
 ---
 # Profile: prod (Render - sin Eureka, URLs directas)
+server:
+  port: ${PORT:8080}
+
 spring:
   config:
     activate:

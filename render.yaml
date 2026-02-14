@@ -15,11 +15,10 @@ services:
     autoDeploy: true
     dockerfilePath: ./user-service/Dockerfile
     dockerContext: .
+    healthCheckPath: /actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
-      - key: SERVER_PORT
-        value: 8082
       - key: DB_HOST
         fromDatabase:
           name: busconnect-db
@@ -50,11 +49,10 @@ services:
     autoDeploy: true
     dockerfilePath: ./catalog-service/Dockerfile
     dockerContext: .
+    healthCheckPath: /actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
-      - key: SERVER_PORT
-        value: 8083
       - key: DB_HOST
         fromDatabase:
           name: busconnect-db
@@ -87,11 +85,10 @@ services:
     autoDeploy: true
     dockerfilePath: ./api-gateway/Dockerfile
     dockerContext: .
+    healthCheckPath: /actuator/health
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
-      - key: SERVER_PORT
-        value: 8080
       - key: CATALOG_SERVICE_URL
         value: https://busconnect-catalog-service.onrender.com
       - key: USER_SERVICE_URL

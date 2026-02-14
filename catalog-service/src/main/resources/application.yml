@@ -199,6 +199,9 @@ logging:
 
 ---
 # Configuración para producción
+server:
+  port: ${PORT:8083}
+
 spring:
   config:
     activate:

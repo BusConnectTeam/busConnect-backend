@@ -95,6 +95,9 @@ management:
 
 ---
 # Profile: prod (Render - sin Eureka, sin health indicators bloqueantes)
+server:
+  port: ${PORT:8082}
+
 spring:
   config:
     activate:
