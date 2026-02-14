@@ -223,6 +223,11 @@ eureka:
   client:
     enabled: false
 
+management:
+  health:
+    discovery:
+      enabled: false
+
 openroute:
   api:
     timeout: 30s

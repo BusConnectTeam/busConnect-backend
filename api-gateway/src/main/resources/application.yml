@@ -176,6 +176,11 @@ eureka:
   client:
     enabled: false
 
+management:
+  health:
+    discovery:
+      enabled: false
+
 ---
 # Profile: docker
 spring:

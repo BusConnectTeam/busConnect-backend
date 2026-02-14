@@ -122,3 +122,5 @@ management:
       enabled: false
     r2dbc:
       enabled: false
+    discovery:
+      enabled: false
