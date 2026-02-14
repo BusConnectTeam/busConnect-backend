@@ -105,14 +105,22 @@ spring:
   cloud:
     discovery:
       enabled: false
+      client:
+        health-indicator:
+          enabled: false
+        composite-indicator:
+          enabled: false
   autoconfigure:
     exclude:
       - org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration
       - org.springframework.cloud.netflix.eureka.EurekaDiscoveryClientConfiguration
+      - org.springframework.cloud.netflix.eureka.reactive.EurekaReactiveDiscoveryClientConfiguration
 
 eureka:
   client:
     enabled: false
+    healthcheck:
+      enabled: false
 
 management:
   health:
@@ -121,6 +129,4 @@ management:
     db:
       enabled: false
     r2dbc:
-      enabled: false
-    discovery:
       enabled: false
